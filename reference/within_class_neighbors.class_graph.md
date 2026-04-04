@@ -36,9 +36,9 @@ cg <- class_graph(labs)
 ng <- neighbor_graph(matrix(c(0,1,0,1,0,0,0,0,0),3))
 within_class_neighbors(cg, ng)
 #> $G
-#> IGRAPH e68ff8e U-W- 3 1 -- 
+#> IGRAPH 5f87f12 U-W- 3 1 -- 
 #> + attr: weight (e/n)
-#> + edge from e68ff8e:
+#> + edge from 5f87f12:
 #> [1] 1--2
 #> 
 #> $params
