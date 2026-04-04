@@ -362,7 +362,7 @@ image(seq(0, 1, length.out = 32),
       as.matrix(S2),
       col  = colorRampPalette(c("white", "#2c7bb6"))(50),
       axes = FALSE, xlab = "", ylab = "",
-      main = "Spatial constraints: 2 blocks \xd7 16 points")
+      main = "Spatial constraints: 2 blocks x 16 points")
 abline(v = 0.5, h = 0.5, col = "firebrick", lwd = 1.5)
 legend("topright", fill = "firebrick", legend = "block boundary",
        bty = "n", cex = 0.8)
