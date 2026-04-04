@@ -1,0 +1,48 @@
+# Estimate Bandwidth Parameter (Sigma) for the Heat Kernel
+
+Estimate a reasonable bandwidth parameter (sigma) for the heat kernel
+based on a data matrix and the specified quantile of the frequency
+distribution of distances.
+
+## Usage
+
+``` r
+estimate_sigma(X, prop = 0.25, nsamples = 500, normalized = FALSE)
+```
+
+## Arguments
+
+- X:
+
+  A data matrix where samples are rows and features are columns.
+
+- prop:
+
+  A numeric value representing the quantile of the frequency
+  distribution of distances used to determine the bandwidth parameter.
+  Default is 0.25.
+
+- nsamples:
+
+  An integer representing the number of samples to draw from the data
+  matrix. Default is 500.
+
+- normalized:
+
+  A logical value indicating whether to normalize the data. Default is
+  FALSE.
+
+## Value
+
+A numeric value representing the estimated bandwidth parameter (sigma)
+for the heat kernel.
+
+## Examples
+
+``` r
+X <- matrix(rnorm(1000), nrow=100, ncol=10)
+
+sigma_default <- estimate_sigma(X)
+
+sigma_custom <- estimate_sigma(X, prop=0.3, nsamples=300)
+```

@@ -1,0 +1,103 @@
+# Convert a Data Matrix to an Adjacency Graph
+
+Convert a data matrix with n instances and p features to an n-by-n
+adjacency graph using specified neighbor and weight modes.
+
+## Usage
+
+``` r
+graph_weights(
+  X,
+  k = 5,
+  neighbor_mode = c("knn"),
+  weight_mode = c("heat", "normalized", "binary", "euclidean", "cosine", "correlation"),
+  type = c("normal", "mutual", "asym"),
+  sigma = NULL,
+  eps = NULL,
+  labels = NULL,
+  ...
+)
+```
+
+## Arguments
+
+- X:
+
+  A data matrix where each row represents an instance and each column
+  represents a variable. Similarity is computed over instances.
+
+- k:
+
+  An integer representing the number of neighbors (ignored when
+  neighbor_mode is not 'epsilon').
+
+- neighbor_mode:
+
+  A character string specifying the method for assigning weights to
+  neighbors, either "supervised", "knn", "knearest_misses", or
+  "epsilon".
+
+- weight_mode:
+
+  A character string specifying the weight mode: binary (1 if neighbor,
+  0 otherwise), 'heat', 'normalized', 'euclidean', 'cosine', or
+  'correlation'.
+
+- type:
+
+  A character string specifying the nearest neighbor policy, one of:
+  normal, mutual, asym.
+
+- sigma:
+
+  A numeric parameter for the heat kernel (exp(-dist/(2\*sigma^2))).
+
+- eps:
+
+  A numeric value representing the neighborhood radius when
+  neighbor_mode is 'epsilon' (not implemented).
+
+- labels:
+
+  A factor vector representing the class of the categories when
+  weight_mode is 'supervised' with nrow(labels) equal to nrow(X).
+
+- ...:
+
+  Additional parameters passed to the internal functions.
+
+## Value
+
+An adjacency graph based on the specified neighbor and weight modes.
+
+## Details
+
+This function converts a data matrix with n instances and p features
+into an adjacency graph. The adjacency graph is created based on the
+specified neighbor and weight modes. The neighbor mode determines how
+neighbors are assigned weights, and the weight mode defines the method
+used to compute weights.
+
+Distances passed to \`weight_mode\` kernels are Euclidean (square root
+already applied to Rnanoflann outputs). Custom kernels should be written
+accordingly; if a kernel expects squared distances, wrap it to square
+its input.
+
+## See also
+
+[`graph_weights_fast`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights_fast.md)
+for additional backends and self-tuning options
+
+## Examples
+
+``` r
+X <- matrix(rnorm(100*100), 100, 100)
+sm <- graph_weights(X, neighbor_mode="knn", weight_mode="normalized", k=3)
+#> sigma is 13.5884515687659
+
+labels <- factor(rep(letters[1:4], 5))
+sm3 <- graph_weights(X, neighbor_mode="knn", k=3, labels=labels, weight_mode="cosine")
+#> Warning: 'labels' parameter is not yet implemented and has no effect
+sm4 <- graph_weights(X, neighbor_mode="knn", k=100, labels=labels, weight_mode="cosine")
+#> Warning: 'labels' parameter is not yet implemented and has no effect
+```

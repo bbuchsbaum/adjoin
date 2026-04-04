@@ -1,0 +1,63 @@
+# Bilateral Spatial Smoother
+
+This function computes a bilateral smoothing of the input data, which
+combines spatial and feature information to provide a smoothed
+representation of the data.
+
+## Usage
+
+``` r
+bilateral_smoother(
+  coord_mat,
+  feature_mat,
+  nnk = 27,
+  s_sigma = 2.5,
+  f_sigma = 0.7,
+  stochastic = FALSE
+)
+```
+
+## Arguments
+
+- coord_mat:
+
+  A matrix with the spatial coordinates of the data points, where each
+  row represents a point and each column represents a coordinate
+  dimension.
+
+- feature_mat:
+
+  A matrix with the feature vectors of the data points, where each row
+  represents a point and each column represents a feature dimension.
+
+- nnk:
+
+  The number of nearest neighbors to consider for smoothing (default:
+  27). Must be \>= 4.
+
+- s_sigma:
+
+  The spatial bandwidth in standard deviations (default: 2.5).
+
+- f_sigma:
+
+  The normalized feature bandwidth in standard deviations (default:
+  0.7).
+
+- stochastic:
+
+  A logical value indicating whether to make the resulting adjacency
+  matrix doubly stochastic (default: FALSE).
+
+## Value
+
+A sparse adjacency matrix representing the smoothed data.
+
+## Examples
+
+``` r
+set.seed(123)
+coord_mat <- as.matrix(expand.grid(1:10, 1:10))
+feature_mat <- matrix(rnorm(100*10), 100, 10)
+S <- bilateral_smoother(coord_mat, feature_mat, nnk=8)
+```

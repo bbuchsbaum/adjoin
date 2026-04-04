@@ -1,0 +1,101 @@
+# Construct a Sparse Matrix of Spatial Constraints for Data Blocks
+
+This function creates a sparse matrix of spatial constraints for a set
+of data blocks. The spatial constraints matrix is useful in applications
+like image segmentation, where spatial information is crucial for
+identifying different regions in the image.
+
+## Usage
+
+``` r
+spatial_constraints(
+  coords,
+  nblocks = 1,
+  sigma_within = 5,
+  sigma_between = 1,
+  shrinkage_factor = 0.1,
+  nnk_within = 27,
+  nnk_between = 1,
+  weight_mode_within = "heat",
+  weight_mode_between = "binary",
+  variable_weights = 1,
+  verbose = FALSE
+)
+```
+
+## Arguments
+
+- coords:
+
+  The spatial coordinates as a matrix with rows as objects and columns
+  as dimensions; or as a list of matrices where each element of the list
+  contains the coordinates for a block.
+
+- nblocks:
+
+  The number of coordinate blocks. Default is 1. If \`coords\` is a list
+  and \`nblocks\` is omitted, it is inferred from \`length(coords)\`.
+
+- sigma_within:
+
+  The bandwidth of the within-block smoother. Default is 5.
+
+- sigma_between:
+
+  The bandwidth of the between-block smoother. Default is 1.
+
+- shrinkage_factor:
+
+  The amount of shrinkage towards the spatial block average. Default is
+  0.1.
+
+- nnk_within:
+
+  The maximum number of nearest neighbors for within-block smoother.
+  Default is 27.
+
+- nnk_between:
+
+  The maximum number of nearest neighbors for between-block smoother.
+  Default is 1.
+
+- weight_mode_within:
+
+  The within-block nearest neighbor weight mode ("heat" or "binary").
+  Default is "heat".
+
+- weight_mode_between:
+
+  The between-block nearest neighbor weight mode ("heat" or "binary").
+  Default is "binary".
+
+- variable_weights:
+
+  A vector of per-variable weights. Default is 1.
+
+- verbose:
+
+  A boolean indicating whether to print progress messages. Default is
+  FALSE.
+
+## Value
+
+A sparse matrix representing the spatial constraints for the provided
+data blocks.
+
+## Details
+
+The function computes within-block and between-block constraints based
+on the provided coordinates, bandwidths, and other input parameters. It
+then balances the within-block and between-block constraints using a
+shrinkage factor, and normalizes the resulting matrix by the first
+eigenvalue.
+
+## Examples
+
+``` r
+coords <- as.matrix(expand.grid(1:2, 1:2))
+S <- spatial_constraints(coords, nblocks=1, sigma_within=1, nnk_within=3)
+dim(S)
+#> [1] 4 4
+```

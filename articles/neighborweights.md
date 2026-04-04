@@ -1,0 +1,3 @@
+# 
+
+## This vignette has been renamed to affinity.Rmd

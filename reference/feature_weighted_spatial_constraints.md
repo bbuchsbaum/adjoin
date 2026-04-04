@@ -1,0 +1,150 @@
+# Construct Feature-Weighted Spatial Constraints for Data Blocks
+
+This function creates a sparse matrix of feature-weighted spatial
+constraints for a set of data blocks. The feature-weighted spatial
+constraints matrix is useful in applications like image segmentation and
+analysis, where both spatial and feature information are crucial for
+identifying different regions in the image.
+
+## Usage
+
+``` r
+feature_weighted_spatial_constraints(
+  coords,
+  feature_mats,
+  sigma_within = 5,
+  sigma_between = 3,
+  wsigma_within = 0.73,
+  wsigma_between = 0.73,
+  alpha_within = 0.5,
+  alpha_between = 0.5,
+  shrinkage_factor = 0.1,
+  nnk_within = 27,
+  nnk_between = 27,
+  maxk_within = nnk_within,
+  maxk_between = nnk_between,
+  weight_mode_within = "heat",
+  weight_mode_between = "binary",
+  variable_weights = rep(1, ncol(coords) * length(feature_mats)),
+  verbose = FALSE
+)
+```
+
+## Arguments
+
+- coords:
+
+  The spatial coordinates as a matrix with rows as objects and columns
+  as dimensions.
+
+- feature_mats:
+
+  A list of feature matrices, one for each data block.
+
+- sigma_within:
+
+  The bandwidth of the within-block smoother. Default is 5.
+
+- sigma_between:
+
+  The bandwidth of the between-block smoother. Default is 3.
+
+- wsigma_within:
+
+  The bandwidth of the within-block feature weights. Default is 0.73.
+
+- wsigma_between:
+
+  The bandwidth of the between-block feature weights. Default is 0.73.
+
+- alpha_within:
+
+  The scaling factor for within-block feature weights. Default is 0.5.
+
+- alpha_between:
+
+  The scaling factor for between-block feature weights. Default is 0.5.
+
+- shrinkage_factor:
+
+  The amount of shrinkage towards the spatial block average. Default is
+  0.1.
+
+- nnk_within:
+
+  The maximum number of nearest neighbors for within-block smoother.
+  Default is 27.
+
+- nnk_between:
+
+  The maximum number of nearest neighbors for between-block smoother.
+  Default is 27.
+
+- maxk_within:
+
+  The maximum number of nearest neighbors for within-block computation.
+  Default is \`nnk_within\`.
+
+- maxk_between:
+
+  The maximum number of nearest neighbors for between-block computation.
+  Default is \`nnk_between\`.
+
+- weight_mode_within:
+
+  The within-block nearest neighbor weight mode ("heat" or "binary").
+  Default is "heat".
+
+- weight_mode_between:
+
+  The between-block nearest neighbor weight mode ("heat" or "binary").
+  Default is "binary".
+
+- variable_weights:
+
+  A vector of per-variable weights. Default is a vector of ones with
+  length equal to the product of the number of columns in the \`coords\`
+  matrix and the length of \`feature_mats\`.
+
+- verbose:
+
+  A boolean indicating whether to print progress messages. Default is
+  FALSE.
+
+## Value
+
+A sparse matrix representing the feature-weighted spatial constraints
+for the provided data blocks.
+
+## Details
+
+The function computes within-block and between-block constraints based
+on the provided coordinates, feature matrices, and other input
+parameters. It balances the within-block and between-block constraints
+using a shrinkage factor, and normalizes the resulting matrix by the
+first eigenvalue. The function also takes into account the weights of
+the variables in the provided feature matrices.
+
+## Examples
+
+``` r
+set.seed(123)
+coords <- as.matrix(expand.grid(1:4, 1:4))
+fmats <- replicate(3, matrix(rnorm(16 * 4), 4, 16), simplify = FALSE)
+conmat <- feature_weighted_spatial_constraints(
+  coords, fmats,
+  sigma_within = 1.5, sigma_between = 1.5,
+  nnk_within = 4, nnk_between = 4,
+  maxk_within = 3, maxk_between = 2
+)
+#> 'as(<dgCMatrix>, "dgTMatrix")' is deprecated.
+#> Use 'as(., "TsparseMatrix")' instead.
+#> See help("Deprecated") and help("Matrix-deprecated").
+
+conmat <- feature_weighted_spatial_constraints(
+  coords, fmats,
+  alpha_within = 0.3, alpha_between = 0.7,
+  maxk_between = 2, maxk_within = 2,
+  sigma_between = 2, nnk_between = 4
+)
+```
