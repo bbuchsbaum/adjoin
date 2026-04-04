@@ -1,0 +1,406 @@
+---
+title: "Spatial Neighbor Graphs"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Spatial Neighbor Graphs}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 6,
+  fig.height = 4
+)
+```
+
+```{r load-pkg}
+library(neighborweights)
+library(Matrix)
+```
+
+## When coordinates matter more than features
+
+Many data sets come with *known* spatial relationships: pixels in an image,
+voxels in a brain scan, sensors on a grid, measurements at geographic locations.
+For these data the question "who is my neighbor?" has a physical answer — Euclidean
+distance in coordinate space — rather than a statistical one derived from feature
+vectors.
+
+`neighborweights` provides a focused set of functions that build adjacency
+matrices directly from coordinate matrices. The output is always a sparse
+`Matrix` with the same interface as feature-based graphs: `adjacency()`,
+`laplacian()`, and normalization all work the same way.
+
+---
+
+## Your first spatial graph
+
+We will use a 6 × 6 grid throughout this vignette — small enough to visualize,
+representative of image and brain-imaging data.
+
+```{r create-grid}
+coords <- as.matrix(expand.grid(x = 1:6, y = 1:6))   # 36 points, 2 columns
+dim(coords)
+```
+
+`spatial_adjacency()` connects every point to its nearest spatial neighbors.
+Two parameters shape the neighborhood:
+
+- **`sigma`** — the heat kernel bandwidth (larger = broader neighborhood)
+- **`nnk`** — the hard cap on neighbor count (keeps the matrix sparse)
+
+```{r first-spatial}
+A <- spatial_adjacency(coords, sigma = 1.5, nnk = 8,
+                       weight_mode = "heat",
+                       include_diagonal = FALSE,
+                       normalized = TRUE)
+cat("size:", nrow(A), "x", ncol(A),
+    "| non-zero entries:", Matrix::nnzero(A), "\n")
+cat("symmetric:", isSymmetric(A), "\n")
+```
+
+Each of the 36 grid points has up to 8 heat-kernel-weighted neighbors within
+radius `sigma × 3 = 4.5` grid units. Normalization symmetrizes the matrix ($D^{-1/2} A D^{-1/2}$) so that edge
+weights are comparable across nodes with different numbers of neighbors.
+
+```{r first-spatial-plot, echo = FALSE, fig.cap = "Spatial neighbor graph on a jittered 6 × 6 grid. Thicker, darker lines are higher-weight edges (nearer neighbours); lighter lines are lower-weight (farther neighbours). Point colour encodes degree.", out.width = "70%"}
+# Jitter the grid so neighbour distances vary and heat-kernel weights differ
+set.seed(7)
+coords_j <- coords + matrix(runif(nrow(coords) * 2, -0.35, 0.35), ncol = 2)
+
+# Raw (unnormalized) weights for visual contrast: nearer pairs score higher
+A_j <- spatial_adjacency(coords_j, sigma = 1.5, nnk = 8,
+                          weight_mode = "heat",
+                          include_diagonal = FALSE, normalized = FALSE)
+
+deg  <- as.numeric(Matrix::rowSums(A_j > 0))
+pal  <- colorRampPalette(c("#deebf7", "#08519c"))(max(deg) + 1)
+pcol <- pal[deg + 1]
+
+plot(coords_j, pch = 16, cex = 1.3, asp = 1, axes = FALSE,
+     xlab = "", ylab = "",
+     main = "Spatial neighbor graph (sigma = 1.5, k \u2264 8, jittered)",
+     col  = pcol)
+box()
+
+A_t <- as(A_j, "TsparseMatrix")
+w_all <- A_t@x[A_t@x > 0]
+w_min <- min(w_all); w_max <- max(w_all)
+
+for (k in seq_along(A_t@x)) {
+  i <- A_t@i[k] + 1L
+  j <- A_t@j[k] + 1L
+  if (i < j) {
+    w <- A_t@x[k]
+    # rescale weight to [0.1, 1] for alpha; heavier = more opaque & thicker
+    alpha_k <- 0.15 + 0.85 * (w - w_min) / (w_max - w_min + 1e-9)
+    lwd_k   <- 0.5 + 2.0  * (w - w_min) / (w_max - w_min + 1e-9)
+    segments(coords_j[i, 1], coords_j[i, 2],
+             coords_j[j, 1], coords_j[j, 2],
+             col = adjustcolor("#2171b5", alpha.f = alpha_k),
+             lwd = lwd_k)
+  }
+}
+points(coords_j, pch = 16, cex = 1.3, col = pcol)
+legend("topright",
+       legend = c("fewer neighbors", "more neighbors"),
+       fill   = c("#deebf7", "#08519c"),
+       bty = "n", cex = 0.8)
+```
+
+Corner and edge points have fewer neighbors than interior points. Because the
+coordinates are slightly irregular, edge weights also vary: thicker, darker lines
+connect closer pairs; faint lines connect pairs near the neighbourhood boundary.
+
+---
+
+## Two weight modes
+
+`weight_mode` controls how spatial distance is converted to an edge weight.
+
+| Mode | Edge weight | Best for |
+|:-----|:-----------|:---------|
+| `"heat"` | exp(−d²/2σ²) | Smooth, distance-proportional weights |
+| `"binary"` | 1 for every neighbor | Structural analysis, graph spectra |
+
+```{r weight-modes}
+A_heat   <- spatial_adjacency(coords, sigma = 1.5, nnk = 8,
+                              weight_mode = "heat",
+                              include_diagonal = FALSE, normalized = FALSE,
+                              stochastic = FALSE)
+A_binary <- spatial_adjacency(coords, sigma = 1.5, nnk = 8,
+                              weight_mode = "binary",
+                              include_diagonal = FALSE, normalized = FALSE,
+                              stochastic = FALSE)
+```
+
+```{r weight-mode-plot, echo = FALSE, fig.cap = "Heat weights decay continuously with distance; binary weights are uniform within the neighborhood radius.", fig.width = 7, fig.height = 3}
+par(mfrow = c(1, 2), mar = c(4, 3, 2.5, 1))
+
+w_heat <- A_heat@x[A_heat@x > 0]
+hist(w_heat, breaks = 20, col = "#2171b5", border = "white",
+     main = "heat kernel", xlab = "edge weight", ylab = "count")
+
+w_bin <- A_binary@x[A_binary@x > 0]
+hist(w_bin, breaks = 5, col = "#6baed6", border = "white",
+     main = "binary", xlab = "edge weight", ylab = "count")
+```
+
+The heat kernel produces a smooth spectrum between 0 and 1; binary produces a
+single spike at 1. Use `"heat"` when distance matters, `"binary"` when only
+presence of a connection matters.
+
+---
+
+## Effect of sigma on neighborhood size
+
+Increasing `sigma` extends the neighborhood and softens the weight decay, adding
+more edges. The `nnk` cap limits runaway growth.
+
+```{r sigma-effect}
+A_tight <- spatial_adjacency(coords, sigma = 0.8, nnk = 27,
+                             weight_mode = "heat",
+                             include_diagonal = FALSE, normalized = TRUE)
+A_wide  <- spatial_adjacency(coords, sigma = 2.5, nnk = 27,
+                             weight_mode = "heat",
+                             include_diagonal = FALSE, normalized = TRUE)
+
+c(tight_edges = Matrix::nnzero(A_tight) / 2L,
+  wide_edges  = Matrix::nnzero(A_wide)  / 2L)
+```
+
+```{r sigma-effect-plot, echo = FALSE, fig.cap = "Tight sigma (0.8) leaves corner and edge points with few connections; wide sigma (2.5) connects most points richly.", fig.width = 7, fig.height = 3.5}
+par(mfrow = c(1, 2), mar = c(1, 1, 2.5, 1))
+
+plot_graph <- function(A, coords, title) {
+  deg  <- as.numeric(Matrix::rowSums(A > 0))
+  pal  <- colorRampPalette(c("#deebf7", "#08519c"))(max(deg, 1) + 1)
+  cols <- pal[deg + 1]
+  plot(coords, pch = 16, cex = 1.3, asp = 1, axes = FALSE,
+       xlab = "", ylab = "", main = title, col = cols)
+  A_t <- as(A, "TsparseMatrix")
+  for (k in seq_along(A_t@x)) {
+    i <- A_t@i[k] + 1L
+    j <- A_t@j[k] + 1L
+    if (i < j)
+      segments(coords[i, 1], coords[i, 2],
+               coords[j, 1], coords[j, 2],
+               col = "#c6dbef", lwd = 0.8)
+  }
+  points(coords, pch = 16, cex = 1.3, col = cols)
+}
+
+plot_graph(A_tight, coords, "sigma = 0.8  (tight)")
+plot_graph(A_wide,  coords, "sigma = 2.5  (wide)")
+```
+
+---
+
+## Spatial smoothing
+
+`spatial_smoother()` converts a spatial adjacency into a weighted averaging
+operator. Multiplying any signal vector by `S` replaces each point's value with
+a distance-weighted average of its neighbors.
+
+```{r spatial-smoother}
+S <- spatial_smoother(coords, sigma = 1.5, nnk = 8, stochastic = FALSE)
+
+set.seed(42)
+signal_raw      <- rnorm(36)
+signal_smoothed <- as.numeric(S %*% signal_raw)
+```
+
+```{r smooth-plot, echo = FALSE, fig.cap = "One pass of the spatial smoother turns Gaussian noise (left) into a smoothly varying field (right). The same heat kernel defines both neighbor selection and weight decay.", fig.width = 7, fig.height = 3.5}
+par(mfrow = c(1, 2), mar = c(2, 2, 2.5, 1))
+zlim_range <- range(c(signal_raw, signal_smoothed))
+heat_pal   <- colorRampPalette(c("#d73027", "white", "#4575b4"))(50)
+
+image(1:6, 1:6, matrix(signal_raw, 6, 6),
+      zlim = zlim_range, col = heat_pal,
+      main = "Raw signal", xlab = "x", ylab = "y")
+image(1:6, 1:6, matrix(signal_smoothed, 6, 6),
+      zlim = zlim_range, col = heat_pal,
+      main = "After spatial smooth", xlab = "x", ylab = "y")
+```
+
+Set `stochastic = TRUE` to apply Sinkhorn–Knopp normalization and produce a
+doubly stochastic smoother (rows *and* columns sum to 1).
+
+---
+
+## The spatial Laplacian
+
+`spatial_laplacian()` returns L = D − A, where D is the degree matrix.
+Multiplying a signal by L measures its local curvature — how much each
+point deviates from its neighbors.
+
+```{r spatial-laplacian}
+L <- spatial_laplacian(coords, dthresh = 4.5, nnk = 8,
+                       weight_mode = "binary", normalized = FALSE)
+
+# Row sums of a Laplacian are zero by definition
+range(round(rowSums(L), 10))
+```
+
+Use `normalized = TRUE` for the symmetric form
+I − D^{−1/2} A D^{−1/2}, which is standard for spectral clustering
+and graph signal processing.
+
+---
+
+## Combining space and features
+
+When you have both coordinates *and* feature observations, `weighted_spatial_adjacency()`
+blends the two similarity sources. The `alpha` parameter sweeps from pure
+spatial weighting to pure feature weighting.
+
+```{r weighted-adj}
+set.seed(42)
+features <- matrix(rnorm(36 * 5), nrow = 36, ncol = 5)  # random 5-d features
+
+A_sp  <- weighted_spatial_adjacency(coords, features,
+                                    alpha = 0, sigma = 2, nnk = 8)
+A_mix <- weighted_spatial_adjacency(coords, features,
+                                    alpha = 0.5, sigma = 2, nnk = 8)
+A_ft  <- weighted_spatial_adjacency(coords, features,
+                                    alpha = 1, sigma = 2, nnk = 8)
+```
+
+```{r weighted-adj-plot, echo = FALSE, fig.cap = "Adjacency heat maps for three alpha values. Spatial-only (left) shows a clean block structure; feature-only (right) looks noisier because the random features carry no spatial signal.", fig.width = 9, fig.height = 3}
+par(mfrow = c(1, 3), mar = c(1, 1, 2.5, 0.5))
+
+show_adj <- function(A, title) {
+  image(seq(0, 1, length.out = 36),
+        seq(0, 1, length.out = 36),
+        as.matrix(A),
+        col  = colorRampPalette(c("white", "#2c7bb6"))(40),
+        axes = FALSE, xlab = "", ylab = "", main = title)
+}
+
+show_adj(A_sp,  "alpha = 0\n(spatial only)")
+show_adj(A_mix, "alpha = 0.5\n(blend)")
+show_adj(A_ft,  "alpha = 1\n(feature only)")
+```
+
+With random features the feature-only matrix is noisy. When features carry
+genuine spatial signal — say, image intensities — the blend rewards both
+proximity *and* similarity.
+
+---
+
+## Bilateral smoothing
+
+`bilateral_smoother()` is a spatial smoother that down-weights neighbors with
+very different feature values. This is the classic bilateral filter from image
+processing: it smooths within regions but preserves sharp edges between them.
+
+```{r bilateral}
+# Piecewise-constant signal with a hard boundary at x = 3.5
+signal_field <- ifelse(coords[, "x"] <= 3, -1, 1) + rnorm(36, sd = 0.2)
+feature_mat  <- matrix(signal_field, ncol = 1)
+
+B                <- bilateral_smoother(coords, feature_mat,
+                                       nnk = 8, s_sigma = 1.5, f_sigma = 0.5)
+signal_bilateral <- as.numeric(B %*% signal_field)
+signal_spatial   <- as.numeric(S %*% signal_field)   # plain spatial smoother
+```
+
+```{r bilateral-plot, echo = FALSE, fig.cap = "Bilateral smoother (right) preserves the hard boundary between the two signal regions; a plain spatial smoother (left) blurs across it.", fig.width = 7, fig.height = 3.5}
+par(mfrow = c(1, 2), mar = c(2, 2, 2.5, 1))
+zlim_b   <- range(c(signal_spatial, signal_bilateral))
+heat_pal <- colorRampPalette(c("#d73027", "white", "#4575b4"))(50)
+
+image(1:6, 1:6, matrix(signal_spatial, 6, 6),
+      zlim = zlim_b, col = heat_pal,
+      main = "Spatial smoother\n(blurs boundary)", xlab = "x", ylab = "y")
+abline(v = 3.5, col = "black", lwd = 2, lty = 2)
+
+image(1:6, 1:6, matrix(signal_bilateral, 6, 6),
+      zlim = zlim_b, col = heat_pal,
+      main = "Bilateral smoother\n(preserves boundary)", xlab = "x", ylab = "y")
+abline(v = 3.5, col = "black", lwd = 2, lty = 2)
+```
+
+The `f_sigma` parameter controls how sensitive the filter is to feature
+differences: smaller values enforce stricter edge preservation.
+
+---
+
+## Multi-block spatial constraints
+
+`spatial_constraints()` handles the case where the same spatial layout appears
+across multiple *blocks* — for example, the same brain or image grid measured
+across subjects or sessions. It builds a combined constraint matrix encoding:
+
+- **Within-block** connections: heat-kernel spatial similarity within each block
+- **Between-block** connections: correspondence between matching locations
+  across blocks
+
+The `shrinkage_factor` balances these two: 0 = all within-block, 1 = all
+between-block.
+
+```{r multi-block}
+coords_small <- as.matrix(expand.grid(x = 1:4, y = 1:4))  # 16-point grid
+
+# Pass a list with one entry per block (same grid repeated for two subjects)
+S2 <- spatial_constraints(list(coords_small, coords_small), nblocks = 2,
+                           sigma_within   = 1.5,  nnk_within   = 6,
+                           sigma_between  = 2.0,  nnk_between  = 4,
+                           shrinkage_factor = 0.15)
+
+dim(S2)   # 32 x 32: 2 blocks x 16 points
+```
+
+```{r multi-block-plot, echo = FALSE, fig.cap = "32x32 constraint matrix for two 4x4 spatial blocks. Diagonal blocks capture within-block spatial similarity; off-diagonal blocks link corresponding locations across blocks. The leading eigenvalue is 1 by construction.", out.width = "65%"}
+image(seq(0, 1, length.out = 32),
+      seq(0, 1, length.out = 32),
+      as.matrix(S2),
+      col  = colorRampPalette(c("white", "#2c7bb6"))(50),
+      axes = FALSE, xlab = "", ylab = "",
+      main = "Spatial constraints: 2 blocks \xd7 16 points")
+abline(v = 0.5, h = 0.5, col = "firebrick", lwd = 1.5)
+legend("topright", fill = "firebrick", legend = "block boundary",
+       bty = "n", cex = 0.8)
+```
+
+The result is normalized so its largest eigenvalue equals 1 — it plugs directly
+into spectral methods that expect a properly scaled operator.
+
+For heterogeneous blocks where each block has different feature observations,
+`feature_weighted_spatial_constraints()` extends this with per-block feature
+weighting.
+
+---
+
+## Function reference
+
+| Function | What it builds |
+|:---------|:---------------|
+| `spatial_adjacency()` | Symmetric spatial similarity from one coordinate set |
+| `cross_spatial_adjacency()` | Rectangular similarity between two coordinate sets |
+| `spatial_laplacian()` | Graph Laplacian L = D − A from coordinates |
+| `spatial_smoother()` | Row-stochastic spatial averaging operator |
+| `weighted_spatial_adjacency()` | Spatial adjacency blended with feature similarity |
+| `bilateral_smoother()` | Edge-preserving spatial smoother |
+| `spatial_constraints()` | Multi-block constraint matrix for repeated layouts |
+| `feature_weighted_spatial_constraints()` | Multi-block constraints with per-block feature weighting |
+| `normalize_adjacency()` | Row-normalize any adjacency matrix |
+| `make_doubly_stochastic()` | Sinkhorn–Knopp doubly stochastic normalization |
+
+---
+
+## Where to go next
+
+- **Feature-based graphs** — `graph_weights()` and `nnsearcher()` build graphs
+  from feature vectors rather than coordinates; see `vignette("neighborweights")`.
+- **Diffusion** — `compute_diffusion_kernel()` propagates information through any
+  adjacency matrix, spatial or feature-based.
+- **Label constraints** — `expand_label_similarity()` combines spatial proximity
+  with class labels for semi-supervised methods.
+- **API reference** — `?spatial_adjacency`, `?spatial_constraints`,
+  `?bilateral_smoother` for full parameter documentation.

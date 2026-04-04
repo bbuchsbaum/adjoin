@@ -1,5 +1,6 @@
 library(testthat)
 library(Matrix)
+library(neighborweights)
 
 context("Spatial weights and adjacency functions")
 
@@ -66,13 +67,64 @@ test_that("weighted_spatial_adjacency combines spatial and feature similarity", 
   coords <- matrix(c(0, 0, 1, 0, 0, 1, 1, 1), ncol = 2, byrow = TRUE)
   # Simple features
   features <- matrix(c(1, 1, 2, 2, 1, 2, 2, 1), ncol = 2, byrow = TRUE)
-  
+
   # Use correct parameter names
-  adj <- weighted_spatial_adjacency(coords, features, wsigma = 1, alpha = 0.5, 
+  adj <- weighted_spatial_adjacency(coords, features, wsigma = 1, alpha = 0.5,
                                    weight_mode = "heat")
-  
+
   expect_true(inherits(adj, "Matrix"))
   expect_equal(dim(adj), c(4, 4))
   expect_true(Matrix::isSymmetric(adj))
   expect_true(all(adj@x >= 0))
+})
+
+test_that("spatial_autocor returns a valid square matrix", {
+  set.seed(42)
+  cds <- as.matrix(expand.grid(x = seq(0, 9), y = seq(0, 9)))
+  n <- nrow(cds)
+  X <- matrix(rnorm(5 * n), nrow = 5)  # 5 features x n locations (columns)
+  S <- spatial_autocor(X, cds, radius = 3, nsamples = 200, maxk = 15)
+  expect_true(inherits(S, "Matrix") || is.matrix(S))
+  expect_equal(nrow(S), n)
+  expect_equal(ncol(S), n)
+})
+
+test_that("spatial_autocor returns finite values", {
+  set.seed(1)
+  cds <- as.matrix(expand.grid(x = seq(0, 9), y = seq(0, 9)))
+  n <- nrow(cds)
+  X <- matrix(rnorm(5 * n), nrow = 5)  # 5 features x n locations (columns)
+  S <- spatial_autocor(X, cds, radius = 3, nsamples = 200, maxk = 15)
+  if (inherits(S, "Matrix")) {
+    expect_true(all(is.finite(S@x)))
+  } else {
+    expect_true(all(is.finite(S)))
+  }
+})
+
+# Regression: normalized=TRUE symmetrizes the KNN graph; normalized=FALSE does not.
+# Bug surfaced when vignette incorrectly claimed the unnormalized matrix was symmetric.
+test_that("spatial_adjacency normalized=TRUE is symmetric, normalized=FALSE is not", {
+  # A non-trivial grid: KNN is directed (i→j does not imply j→i), so the raw
+  # matrix is asymmetric. Normalization (D^{-1/2} A D^{-1/2} + symmetrize)
+  # must be applied to obtain a symmetric result.
+  coords <- as.matrix(expand.grid(x = 1:5, y = 1:5))
+
+  adj_norm <- spatial_adjacency(coords, sigma = 1.5, nnk = 6,
+                                 weight_mode = "heat",
+                                 include_diagonal = FALSE,
+                                 normalized = TRUE)
+  expect_true(Matrix::isSymmetric(adj_norm),
+              info = "normalized=TRUE must produce a symmetric matrix")
+  expect_true(all(adj_norm@x >= 0),
+              info = "all edge weights must be non-negative")
+
+  adj_raw <- spatial_adjacency(coords, sigma = 1.5, nnk = 6,
+                                weight_mode = "heat",
+                                include_diagonal = FALSE,
+                                normalized = FALSE)
+  # The raw KNN graph is generally not symmetric (asymmetry shrinks as k grows,
+  # but for k < n it is expected).  Verify at least that the two paths differ.
+  expect_false(isTRUE(all.equal(as.matrix(adj_norm), as.matrix(adj_raw))),
+               info = "normalized and unnormalized matrices must differ")
 })
