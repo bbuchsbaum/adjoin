@@ -4,12 +4,18 @@
 \alias{normalize_adjacency}
 \title{Normalize Adjacency Matrix}
 \usage{
-normalize_adjacency(sm, symmetric = TRUE)
+normalize_adjacency(
+  sm,
+  symmetric = TRUE,
+  handle_isolates = c("self_loop", "keep_zero", "drop")
+)
 }
 \arguments{
 \item{sm}{A sparse adjacency matrix representing the graph.}
 
 \item{symmetric}{A logical value indicating whether to symmetrize the matrix after normalization (default: TRUE).}
+
+\item{handle_isolates}{How to treat zero-degree nodes when normalizing: "self_loop" adds a self-loop (default), "keep_zero" leaves them as zero, or "drop" removes them from the matrix.}
 }
 \value{
 A normalized and, if requested, symmetrized adjacency matrix.

@@ -19,3 +19,9 @@ A neighbor_graph object representing the within-class neighbors of the input cla
 \description{
 Compute the within-class neighbors of a class_graph object.
 }
+\examples{
+labs <- factor(c("a","a","b"))
+cg <- class_graph(labs)
+ng <- neighbor_graph(matrix(c(0,1,0,1,0,0,0,0,0),3))
+within_class_neighbors(cg, ng)
+}

@@ -22,12 +22,9 @@ A numeric value representing the estimated bandwidth parameter (sigma) for the h
 Estimate a reasonable bandwidth parameter (sigma) for the heat kernel based on a data matrix and the specified quantile of the frequency distribution of distances.
 }
 \examples{
-# Sample data
 X <- matrix(rnorm(1000), nrow=100, ncol=10)
 
-# Estimate sigma with default parameters
 sigma_default <- estimate_sigma(X)
 
-# Estimate sigma with custom quantile and number of samples
 sigma_custom <- estimate_sigma(X, prop=0.3, nsamples=300)
 }

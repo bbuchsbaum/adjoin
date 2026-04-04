@@ -17,3 +17,9 @@ An object of class "nn_search" with standardized field names.
 \description{
 Convert raw search results to a standardized format for nnsearcher objects.
 }
+\examples{
+res <- list(idx = matrix(c(1L,2L), nrow=1),
+            dist = matrix(c(0.1,0.2), nrow=1))
+dummy <- nnsearcher(matrix(rnorm(4), nrow=2))
+search_result(dummy, res)
+}

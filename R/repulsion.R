@@ -4,6 +4,7 @@ repulse_weight <- function(x1,x2, sigma=10) {
   num <- sum((x1 - x2)^2)
   denom <- sqrt(sum(x1^2)) + sqrt(sum(x2^2))
 
+  if (!is.finite(denom) || denom == 0) return(0)
   1/(sigma + num/denom)
 }
 
@@ -46,42 +47,33 @@ repulse_weight <- function(x1,x2, sigma=10) {
 #' @examples
 #' library(Matrix)
 #'
-#' # --- Example 1: Simple Random Data ---
 #' set.seed(123)
 #' N <- 50
-#' # Create a base graph (e.g., from features)
 #' X <- matrix(rnorm(N * 5), N, 5)
 #' W_adj <- Matrix(rsparsematrix(N, N, 0.1, symmetric = TRUE)) # Base adjacency
 #' diag(W_adj) <- 0
 #' W_ng <- neighbor_graph(W_adj) # Convert to neighbor_graph
 #'
-#' # Define class labels
 #' labels <- factor(sample(1:3, N, replace = TRUE))
 #' cg <- class_graph(labels)
 #'
-#' # Create a weighted repulsion graph
 #' R_weighted <- repulsion_graph(W_ng, cg, method = "weighted")
 #' print(R_weighted)
 #' plot(R_weighted$G, vertex.color = labels, vertex.size=8, vertex.label=NA)
 #' title("Weighted Repulsion Graph (Edges only between classes)")
 #'
-#' # Create a binary repulsion graph
 #' R_binary <- repulsion_graph(W_ng, cg, method = "binary")
 #' print(R_binary)
 #'
-#' # --- Example 2: Iris Dataset ---
 #' data(iris)
 #' X_iris <- as.matrix(iris[, 1:4])
 #' labels_iris <- iris[, 5]
 #' cg_iris <- class_graph(labels_iris)
 #'
-#' # Build a kNN graph first
 #' W_iris_knn <- graph_weights(X_iris, k = 5, weight_mode = "heat", sigma = 0.7)
 #'
-#' # Create repulsion graph (weighted)
 #' R_iris <- repulsion_graph(W_iris_knn, cg_iris, method = "weighted")
 #' print(R_iris)
-#' # Edges should primarily connect different iris species
 #' plot(R_iris$G, vertex.color = as.numeric(labels_iris), vertex.size=5, vertex.label=NA)
 #' title("Iris Repulsion Graph (k=5, heat weights)")
 #'
@@ -109,13 +101,13 @@ repulsion_graph <- function(W, cg, method = c("weighted", "binary"), threshold =
   }
 
   # Apply threshold to input graph W
-  if (threshold > 0) {
+  if (threshold > 0 && length(W_adj@x)) {
       W_adj@x[W_adj@x < threshold] <- 0
       W_adj <- drop0(W_adj) # Remove explicit zeros
   }
 
   # Create the repulsion mask (1 for between-class, 0 for within-class)
-  repulsion_mask <- !adjacency(cg)
+  repulsion_mask <- (cg_adj == 0)
 
   # Apply the mask
   R_adj <- W_adj * repulsion_mask
@@ -165,20 +157,36 @@ new_repulsion_graph <- function(adjacency_matrix, params = list(), ...) {
 #'
 #' @param x A repulsion_graph object
 #' @param ... Additional arguments passed to print
-#' @importFrom crayon bold green blue red magenta
+#' @return The input \code{x}, invisibly.
+#' @examples
+#' coords <- matrix(c(0,0,1,0), ncol=2, byrow=TRUE)
+#' W <- neighbor_graph(spatial_adjacency(coords, nnk=2, sigma=1))
+#' cg <- class_graph(factor(c(1,2)))
+#' rg <- repulsion_graph(W, cg)
+#' print(rg)
 #' @export
 print.repulsion_graph <- function(x, ...) {
-    cat(bold(magenta("Repulsion Graph Object\n")))
-    cat("----------------------\n")
-    NextMethod("print") # Call the parent print method first
-
-    # Add specific repulsion graph info
-    cat(bold("Repulsion Params:\n"))
-    cat("  Method:", blue(x$params$method), "\n")
-    if (x$params$method == "weighted") {
-        cat("  Normalization Factor:", blue(x$params$norm_fac %||% "NA"), "\n")
+    if (requireNamespace("crayon", quietly = TRUE)) {
+        cat(crayon::bold(crayon::magenta("Repulsion Graph Object\n")))
+        cat("----------------------\n")
+        NextMethod("print")
+        cat(crayon::bold("Repulsion Params:\n"))
+        cat("  Method:", crayon::blue(x$params$method), "\n")
+        if (x$params$method == "weighted") {
+            cat("  Normalization Factor:", crayon::blue(x$params$norm_fac %||% "NA"), "\n")
+        }
+        cat("  Input Threshold:", crayon::blue(x$params$threshold), "\n")
+    } else {
+        cat("Repulsion Graph Object\n")
+        cat("----------------------\n")
+        NextMethod("print")
+        cat("Repulsion Params:\n")
+        cat("  Method:", x$params$method, "\n")
+        if (x$params$method == "weighted") {
+            cat("  Normalization Factor:", x$params$norm_fac %||% "NA", "\n")
+        }
+        cat("  Input Threshold:", x$params$threshold, "\n")
     }
-    cat("  Input Threshold:", blue(x$params$threshold), "\n")
     cat("----------------------\n")
     invisible(x)
 }

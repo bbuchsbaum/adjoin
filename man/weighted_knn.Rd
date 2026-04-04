@@ -10,6 +10,9 @@ weighted_knn(
   FUN = heat_kernel,
   type = c("normal", "mutual", "asym"),
   as = c("igraph", "sparse"),
+  backend = c("nanoflann", "hnsw"),
+  M = 16,
+  ef = 200,
   ...
 )
 }
@@ -24,6 +27,11 @@ weighted_knn(
 
 \item{as}{A character string specifying the format of the output. One of "igraph" or "sparse" (default: "igraph").}
 
+\item{backend}{Nearest-neighbor backend. `"nanoflann"` uses exact Euclidean
+search; `"hnsw"` uses approximate search via `RcppHNSW`.}
+
+\item{M, ef}{HNSW tuning parameters used only when `backend="hnsw"`.}
+
 \item{...}{Additional arguments passed to the nearest neighbor search function (Rnanoflann::nn).}
 }
 \value{
@@ -34,6 +42,11 @@ If 'as' is "igraph", an igraph object representing the weighted k-nearest neighb
 This function computes a weighted k-nearest neighbors graph or adjacency matrix from a data matrix.
 The function takes into account the Euclidean distance between instances and applies a kernel function
 to convert the distances into similarities.
+}
+\details{
+Distances passed to `FUN` are Euclidean distances. With `backend="hnsw"`,
+squared L2 distances from `RcppHNSW` are converted back to Euclidean
+distances before weighting.
 }
 \examples{
 X <- matrix(rnorm(10 * 10), 10, 10)

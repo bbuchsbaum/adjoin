@@ -6,7 +6,7 @@
 #' @param sparse A logical value, indicating whether to use sparse matrices in the computation. Default is TRUE.
 #'
 #' @return A class_graph object, which is a list containing the following components:
-#' \itemize{
+#' \describe{
 #'   \item{adjacency}{A matrix representing the adjacency of the graph.}
 #'   \item{params}{A list of parameters used in the construction of the graph.}
 #'   \item{labels}{A vector of class labels.}
@@ -16,7 +16,7 @@
 #'   \item{classes}{A character string indicating the type of graph ("class_graph").}
 #' }
 #'
-#' @importFrom Matrix sparseVector tcrossprod Matrix t
+#' @importFrom Matrix sparseMatrix tcrossprod
 #'
 #' @examples
 #' data(iris)
@@ -24,20 +24,38 @@
 #' cg <- class_graph(labels)
 #'
 #' @export
-class_graph <- function(labels, sparse=TRUE) {
+class_graph <- function(labels, sparse = TRUE) {
   labels <- as.factor(labels)
-  out <- Reduce("+", lapply(levels(labels), function(lev) {
-    kronecker(Matrix(labels==lev, sparse=sparse), t(Matrix(labels==lev, sparse=sparse)))
-  }))
+  n <- length(labels)
+  lvls <- levels(labels)
+
+  if (sparse) {
+    # Efficient sparse construction using indicator matrix
+
+    # Create sparse indicator matrix (n x k) where k = number of classes
+    # Then compute tcrossprod to get n x n class adjacency
+    label_int <- as.integer(labels)
+    indicator <- Matrix::sparseMatrix(
+      i = seq_len(n),
+      j = label_int,
+      x = rep(1, n),
+      dims = c(n, length(lvls))
+    )
+    out <- Matrix::tcrossprod(indicator)
+  } else {
+    # Dense version
+    indicator <- model.matrix(~ labels - 1)
+    out <- tcrossprod(indicator)
+  }
 
   ret <- neighbor_graph(
     out,
-    params = list(weight_mode="binary", neighbor_mode="supervised"),
-    labels=labels,
-    class_indices=split(1:length(labels), labels),
-    class_freq=table(labels),
-    levels=unique(labels),
-    classes="class_graph"
+    params = list(weight_mode = "binary", neighbor_mode = "supervised"),
+    labels = labels,
+    class_indices = split(seq_len(n), labels),
+    class_freq = table(labels),
+    levels = lvls,
+    classes = "class_graph"
   )
 
   ret
@@ -53,6 +71,10 @@ class_graph <- function(labels, sparse=TRUE) {
 #'
 #' @return The number of classes in the class_graph.
 #'
+#' @examples
+#' labs <- factor(c("a","a","b"))
+#' cg <- class_graph(labs)
+#' nclasses(cg)
 #' @method nclasses class_graph
 #' @export
 nclasses.class_graph <- function(x) {
@@ -70,6 +92,10 @@ nclasses.class_graph <- function(x) {
 #'
 #' @return A matrix where each row represents the mean values for each class.
 #'
+#' @examples
+#' labs <- factor(c("a","a","b"))
+#' cg <- class_graph(labs)
+#' class_means(cg, matrix(1:9, nrow=3))
 #' @method class_means class_graph
 #' @export
 class_means.class_graph <- function(x, X, ...) {
@@ -94,67 +120,73 @@ class_means.class_graph <- function(x, X, ...) {
 #' @param ... Additional arguments passed to weight function.
 #'
 #' @return A neighbor_graph object representing the between-class neighbors.
-#' @importFrom FNN get.knnx
 #' @importFrom Matrix sparseMatrix
+#' @examples
+#' labs <- factor(c("a","a","b","b"))
+#' cg <- class_graph(labs)
+#' X <- matrix(rnorm(8), ncol=2)
+#' heterogeneous_neighbors(cg, X, k=1)
 #' @export
-heterogeneous_neighbors <- function(x, X, k, weight_mode="binary", sigma=1, ...) {
-  all_indices <- 1:nrow(X)
+heterogeneous_neighbors <- function(x, X, k, weight_mode = "heat", sigma = 1, ...) {
+  N <- nrow(X)
+  all_indices <- seq_len(N)
   class_indices <- x$class_indices
-  all_triplets <- list()
+  all_triplets <- vector("list", length(class_indices))
 
-  weight_fun <- get_neighbor_fun(weight_mode, sigma=sigma, ...)
+  weight_fun <- get_neighbor_fun(weight_mode, sigma = sigma, ...)
 
-  for (lev in names(class_indices)) {
+  for (idx in seq_along(class_indices)) {
+    lev <- names(class_indices)[idx]
     query_idx <- class_indices[[lev]]
-    # Ensure data_idx contains valid indices within the bounds of X
+    # Get indices of points NOT in this class
     data_idx <- setdiff(all_indices, query_idx)
-    data_idx <- data_idx[data_idx >= 1 & data_idx <= nrow(X)]
-    query_idx <- query_idx[query_idx >= 1 & query_idx <= nrow(X)]
 
     if (length(data_idx) == 0 || length(query_idx) == 0) next
 
-    # Ensure k is not larger than the number of available data points
+    # Adjust k if fewer points available than requested
     actual_k <- min(k, length(data_idx))
     if (actual_k == 0) next
 
-    knn_result <- FNN::get.knnx(X[data_idx, , drop = FALSE],
-                                 X[query_idx, , drop = FALSE],
-                                 k = actual_k)
+    knn_result <- Rnanoflann::nn(
+      data = X[data_idx, , drop = FALSE],
+      points = X[query_idx, , drop = FALSE],
+      k = actual_k
+    )
 
-    # knn_result$nn.index gives indices relative to data_idx
-    # knn_result$nn.dist gives distances
+    weights <- weight_fun(knn_result$distances)
 
-    weights <- weight_fun(knn_result$nn.dist)
+    # Row indices: each query point repeated actual_k times (column-major flattening)
+    row_indices_orig <- rep(query_idx, times = actual_k)
+    # Column indices: map indices back to original indices
+    col_indices_orig <- data_idx[as.vector(knn_result$indices)]
 
-    # Prepare triplets (i, j, weight)
-    row_indices_orig <- rep(query_idx, actual_k)
-    # Map nn.index back to original indices
-    col_indices_orig <- data_idx[as.vector(knn_result$nn.index)]
-
-    triplets <- data.frame(
+    # Use matrix instead of data.frame for efficiency
+    all_triplets[[idx]] <- cbind(
       i = row_indices_orig,
       j = col_indices_orig,
       weight = as.vector(weights)
     )
-    all_triplets[[lev]] <- triplets
   }
 
+  # Remove NULL entries
+  all_triplets <- all_triplets[!vapply(all_triplets, is.null, logical(1))]
+
   if (length(all_triplets) == 0) {
-    # Return an empty graph if no neighbors found
-    adj <- Matrix::sparseMatrix(i={}, j={}, dims=c(nrow(X), nrow(X)))
+    adj <- Matrix::sparseMatrix(i = integer(0), j = integer(0), dims = c(N, N))
   } else {
     final_triplets <- do.call(rbind, all_triplets)
-    # Ensure symmetry by adding transposed triplets and averaging/maxing weights if needed
-    # Or just build directed and make symmetric later
-    adj <- Matrix::sparseMatrix(i = final_triplets$i,
-                                j = final_triplets$j,
-                                x = final_triplets$weight,
-                                dims = c(nrow(X), nrow(X)))
-     # Make symmetric - choose max weight for shared edges
+
+    adj <- Matrix::sparseMatrix(
+      i = final_triplets[, "i"],
+      j = final_triplets[, "j"],
+      x = final_triplets[, "weight"],
+      dims = c(N, N)
+    )
+    # Make symmetric - choose max weight for shared edges
     adj <- pmax(adj, Matrix::t(adj))
   }
 
-  neighbor_graph(adj, params = list(weight_mode=weight_mode, neighbor_mode="heterogeneous", k=k, sigma=sigma))
+  neighbor_graph(adj, params = list(weight_mode = weight_mode, neighbor_mode = "heterogeneous", k = k, sigma = sigma))
 }
 
 #' Homogeneous Neighbors for class_graph Objects
@@ -169,63 +201,77 @@ heterogeneous_neighbors <- function(x, X, k, weight_mode="binary", sigma=1, ...)
 #' @param ... Additional arguments passed to weight function.
 #'
 #' @return A neighbor_graph object representing the within-class neighbors.
-#' @importFrom FNN get.knn
 #' @importFrom Matrix sparseMatrix
+#' @examples
+#' labs <- factor(c("a","a","b","b"))
+#' cg <- class_graph(labs)
+#' X <- matrix(rnorm(8), ncol=2)
+#' homogeneous_neighbors(cg, X, k=1)
 #' @export
-homogeneous_neighbors <- function(x, X, k, weight_mode="heat", sigma=1, ...) {
+homogeneous_neighbors <- function(x, X, k, weight_mode = "heat", sigma = 1, ...) {
   class_indices <- x$class_indices
-  all_triplets <- list()
+  all_triplets <- vector("list", length(class_indices))
   N <- nrow(X)
 
-  weight_fun <- get_neighbor_fun(weight_mode, sigma=sigma, ...)
+  weight_fun <- get_neighbor_fun(weight_mode, sigma = sigma, ...)
 
-  for (lev in names(class_indices)) {
+  for (idx in seq_along(class_indices)) {
+    lev <- names(class_indices)[idx]
     idx_subset <- class_indices[[lev]]
     n_subset <- length(idx_subset)
 
-    # Skip if class is too small to find k neighbors
-    if (n_subset <= k) next
+    # Need at least 2 points to find neighbors (can't be neighbor of yourself)
+    if (n_subset <= 1) next
 
-    knn_result <- FNN::get.knn(X[idx_subset, , drop = FALSE], k = k)
+    # Adjust k if class is smaller than requested k
+    actual_k <- min(k, n_subset - 1)
 
-    # knn_result$nn.index gives indices relative to idx_subset
-    # knn_result$nn.dist gives distances
+    # Request k+1 neighbors to exclude self (first column).
+    X_subset <- X[idx_subset, , drop = FALSE]
+    knn_result <- Rnanoflann::nn(data = X_subset, points = X_subset, k = actual_k + 1L)
 
-    weights <- weight_fun(knn_result$nn.dist)
+    # Exclude self-neighbor (first column)
+    nn_indices <- knn_result$indices[, -1, drop = FALSE]
+    nn_distances <- knn_result$distances[, -1, drop = FALSE]
 
-    # Row indices within the subset (repeated k times)
-    row_indices_subset <- rep(1:n_subset, k)
-    # Column indices within the subset (from nn.index)
-    col_indices_subset <- as.vector(knn_result$nn.index)
+    weights <- weight_fun(nn_distances)
+
+    # Row indices within the subset (repeated k times for column-major flattening)
+    row_indices_subset <- rep(seq_len(n_subset), times = actual_k)
+    # Column indices within the subset (from indices, flattened column-major)
+    col_indices_subset <- as.vector(nn_indices)
 
     # Map back to original indices
     row_indices_orig <- idx_subset[row_indices_subset]
     col_indices_orig <- idx_subset[col_indices_subset]
 
-    triplets <- data.frame(
+    # Use matrix instead of data.frame for efficiency
+    all_triplets[[idx]] <- cbind(
       i = row_indices_orig,
       j = col_indices_orig,
       weight = as.vector(weights)
     )
-    all_triplets[[lev]] <- triplets
   }
 
+  # Remove NULL entries
+  all_triplets <- all_triplets[!vapply(all_triplets, is.null, logical(1))]
+
   if (length(all_triplets) == 0) {
-    # Return an empty graph
-    adj <- Matrix::sparseMatrix(i={}, j={}, dims=c(N, N))
+    adj <- Matrix::sparseMatrix(i = integer(0), j = integer(0), dims = c(N, N))
   } else {
     final_triplets <- do.call(rbind, all_triplets)
 
-    # Build sparse matrix from triplets
-    adj <- Matrix::sparseMatrix(i = final_triplets$i,
-                                j = final_triplets$j,
-                                x = final_triplets$weight,
-                                dims = c(N, N))
+    adj <- Matrix::sparseMatrix(
+      i = final_triplets[, "i"],
+      j = final_triplets[, "j"],
+      x = final_triplets[, "weight"],
+      dims = c(N, N)
+    )
     # Make symmetric: take the max weight if edge (i,j) and (j,i) both exist
     adj <- pmax(adj, Matrix::t(adj))
   }
 
-  neighbor_graph(adj, params = list(weight_mode=weight_mode, neighbor_mode="homogeneous", k=k, sigma=sigma))
+  neighbor_graph(adj, params = list(weight_mode = weight_mode, neighbor_mode = "homogeneous", k = k, sigma = sigma))
 }
 
 
@@ -239,6 +285,11 @@ homogeneous_neighbors <- function(x, X, k, weight_mode="heat", sigma=1, ...) {
 #'
 #' @return A neighbor_graph object representing the within-class neighbors of the input class_graph.
 #'
+#' @examples
+#' labs <- factor(c("a","a","b"))
+#' cg <- class_graph(labs)
+#' ng <- neighbor_graph(matrix(c(0,1,0,1,0,0,0,0,0),3))
+#' within_class_neighbors(cg, ng)
 #' @method within_class_neighbors class_graph
 #' @export
 within_class_neighbors.class_graph <- function(x, ng, ...) {
@@ -259,12 +310,22 @@ within_class_neighbors.class_graph <- function(x, ng, ...) {
 #'
 #' @return A neighbor_graph object representing the between-class neighbors.
 #'
+#' @examples
+#' labs <- factor(c("a","a","b"))
+#' cg <- class_graph(labs)
+#' ng <- neighbor_graph(matrix(c(0,1,1,1,0,1,1,1,0),3))
+#' between_class_neighbors(cg, ng)
+#'
 #' @method between_class_neighbors class_graph
 #' @export
 between_class_neighbors.class_graph <- function(x, ng, ...) {
-  Ac <- !adjacency(x)
+  Ac <- adjacency(x)
   An <- adjacency(ng)
-  Aout <- Ac * An
+  # Compute edges in An that are NOT in class graph (between-class)
+
+  # This is equivalent to An * (!Ac) but avoids creating dense matrix
+  # An - (Ac * An) keeps only edges where Ac is 0
+  Aout <- An - (Ac * An)
   neighbor_graph(Aout)
 }
 
@@ -276,45 +337,51 @@ between_class_neighbors.class_graph <- function(x, ng, ...) {
 #' tasks like classification and clustering.
 #'
 #' @param X A numeric matrix or data frame containing the data points.
-#' @param k An integer representing the number of nearest neighbors to consider.
-#' @param sigma A numeric value representing the scaling factor for the heat kernel. If not provided, it will be estimated.
 #' @param labels A factor or numeric vector containing the class labels for each data point.
+#' @param k An integer representing the number of nearest neighbors to consider. Default is half the number of samples.
+#' @param sigma A numeric value representing the scaling factor for the heat kernel. If not provided, it will be estimated.
 #'
-#' @return A discriminating distance matrix in the form of a numeric matrix.
+#' @return A discriminating distance matrix in the form of a sparse matrix.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' X <- matrix(rnorm(100*100), 100, 100)
 #' labels <- factor(rep(1:5, each=20))
 #' sigma <- 0.7
-#' D <- discriminating_distance(X, k=length(labels)/2, sigma, labels)
+#' D <- discriminating_distance(X, labels, k=length(labels)/2, sigma=sigma)
 #' }
 #'
 #' @export
-discriminating_distance <- function(X, k=length(labels)/2, sigma, labels) {
-  #Wknn <- graph_weights(X)
-
-  if (missing(sigma)) {
-    sigma <- estimate_sigma(X, prop=.1)
+discriminating_distance <- function(X, labels, k = NULL, sigma = NULL) {
+  if (is.null(k)) {
+    k <- floor(length(labels) / 2)
   }
 
-  Wall <- graph_weights(X, k=k, weight_mode="euclidean", neighbor_mode="knn")
-  Wall <- adjacency(Wall)  # Convert to adjacency matrix
+  if (is.null(sigma)) {
+    sigma <- estimate_sigma(X, prop = 0.1)
+  }
 
-  Ww <- label_matrix2(labels, labels)
-  Wb <- label_matrix2(labels, labels, type="d")
+  Wall <- graph_weights(X, k = k, weight_mode = "euclidean", neighbor_mode = "knn")
+  Wall <- adjacency(Wall)
+
+  Ww <- diagonal_label_matrix(labels, labels)
+  Wb <- diagonal_label_matrix(labels, labels, type = "d")
 
   Ww2 <- Wall * Ww
   Wb2 <- Wall * Wb
 
-  wind <- which(Ww2 >0)
-  bind <- which(Wb2 >0)
+  wind <- which(Ww2 > 0)
+  bind <- which(Wb2 > 0)
 
   hw <- inverse_heat_kernel(Wall[wind], sigma)
   hb <- inverse_heat_kernel(Wall[bind], sigma)
 
-  Wall[wind] <- hw * (1-hw)
-  Wall[bind] <- hb * (1+hb)
+  # Discriminating transformation:
+  # Within-class: reduce distance (multiply by factor < 1 when hw < 1)
+  # Between-class: increase distance (multiply by factor > 1)
+  Wall[wind] <- pmax(0, hw * (1 - hw))  # Clamp to non-negative
+
+  Wall[bind] <- hb * (1 + hb)
   Wall
 }
 
@@ -330,15 +397,15 @@ discriminating_distance <- function(X, k=length(labels)/2, sigma, labels) {
 #' @param cg A class_graph object computed from the labels.
 #' @param threshold A numeric value representing the threshold for the class graph. Default is 0.01.
 #'
-#' @return A weighted similarity graph in the form of a matrix.
+#' @return A weighted similarity graph in the form of a sparse matrix.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' X <- matrix(rnorm(100*100), 100, 100)
 #' labels <- factor(rep(1:5, each=20))
 #' cg <- class_graph(labels)
 #' sigma <- 0.7
-#' W <- discriminating_simililarity(X, k=length(labels)/2, sigma, cg)
+#' W <- discriminating_similarity(X, k=length(labels)/2, sigma, cg)
 #' }
 #'
 #' @references
@@ -346,26 +413,35 @@ discriminating_distance <- function(X, k=length(labels)/2, sigma, labels) {
 #' handwriting digits recognition
 #'
 #' @export
-discriminating_simililarity <- function(X, k, sigma, cg, threshold=.01) {
-  #Wknn <- graph_weights(X)
+discriminating_similarity <- function(X, k, sigma, cg, threshold=.01) {
+  Wall <- graph_weights(X, k=k, weight_mode="heat", neighbor_mode="knn", sigma=sigma)
+  Wall <- adjacency(Wall)
 
-  Wall <- graph_weights(X, k=k, weight_mode="heat", neighbor_mode="knn",sigma=sigma)
-  Ww <- cg
-  Wb <- 1- (cg > threshold)
+  # Extract adjacency from class_graph object
+  Ww <- adjacency(cg)
+  # Between-class mask: edges NOT in class graph, but only where Wall has edges
+  # Avoid creating dense matrix by working only with non-zero entries of Wall
+  Wb <- Wall > 0
+  Wb[Ww > threshold] <- FALSE
 
-  Ww2 <- Wall * Ww
+  # Within-class edges
+  Ww2 <- Wall * (Ww > threshold)
+  # Between-class edges
   Wb2 <- Wall * Wb
 
-  wind <- which(Ww2 >0)
-  bind <- which(Wb2 >0)
+  wind <- which(Ww2 > 0)
+  bind <- which(Wb2 > 0)
 
+  # Apply discriminating weights
+  # Within-class: boost similarity
   hw <- heat_kernel(Wall[wind], sigma)
-  hb <- heat_kernel(Wall[bind], sigma)
+  Wall[wind] <- hw * (1 + hw)
 
-  Wall[wind] <- hw * (1+hw)
-  Wall[bind] <- hb * (1-hb)
+
+  # Between-class: reduce similarity
+  hb <- heat_kernel(Wall[bind], sigma)
+  Wall[bind] <- hb * (1 - hb)
+
   Wall
 }
-
-
 

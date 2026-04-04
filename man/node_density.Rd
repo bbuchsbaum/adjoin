@@ -17,3 +17,10 @@ A numeric vector of node densities.
 \description{
 Compute the local density around each node in a graph.
 }
+\examples{
+adj_matrix <- matrix(c(0,1,1,
+                       1,0,0,
+                       1,0,0), nrow=3, byrow=TRUE)
+ng <- neighbor_graph(adj_matrix)
+node_density(ng, matrix(rnorm(9), nrow=3))
+}

@@ -15,3 +15,9 @@ The number of classes in the input object.
 \description{
 A generic function to compute the number of classes in a graph.
 }
+\examples{
+labs <- factor(c("a","a","b"))
+cg <- class_graph(labs)
+nclasses(cg)
+
+}

@@ -32,15 +32,12 @@ The function supports four similarity methods: Jaccard, Rogers, simple matching,
 specific use case and the desired properties of the similarity measure.
 }
 \examples{
-# Sample data
 des <- data.frame(
   var1 = factor(c("a", "b", "a", "b", "a")),
   var2 = factor(c("c", "c", "d", "d", "d"))
 )
 
-# Compute similarity matrix using Jaccard method
 sim_jaccard <- factor_sim(des, method = "Jaccard")
 
-# Compute similarity matrix using Dice method
 sim_dice <- factor_sim(des, method = "Dice")
 }

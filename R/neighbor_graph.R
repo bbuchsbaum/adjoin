@@ -11,12 +11,10 @@
 #' @return A neighbor_graph object wrapping the input graph structure.
 #'
 #' @examples
-#' # Create from igraph
 #' library(igraph)
 #' g <- make_ring(5)
 #' ng1 <- neighbor_graph(g)
 #'
-#' # Create from Matrix
 #' adj_matrix <- Matrix::Matrix(c(0, 1, 1, 0, 1, 0, 1, 0, 0), 
 #'                             nrow = 3, byrow = TRUE, sparse = TRUE)
 #' ng2 <- neighbor_graph(adj_matrix)
@@ -69,7 +67,6 @@ neighbor_graph.matrix <- function(x, params=list(), type=NULL, classes=NULL, ...
 #' @return A sparse Matrix object representing the adjacency matrix.
 #'
 #' @examples
-#' # Create example neighbor_graph
 #' adj_matrix <- Matrix::Matrix(c(0, 1, 1, 0, 1, 0, 1, 0, 0), 
 #'                             nrow = 3, byrow = TRUE, sparse = TRUE)
 #' ng <- neighbor_graph(adj_matrix)
@@ -78,7 +75,7 @@ neighbor_graph.matrix <- function(x, params=list(), type=NULL, classes=NULL, ...
 #' @method adjacency neighbor_graph
 #' @export
 adjacency.neighbor_graph <- function(x, attr="weight", ...) {
-  igraph::as_adjacency_matrix(x$G, attr=attr)
+  igraph::as_adjacency_matrix(x$G, attr=attr, sparse=TRUE)
 }
 
 
@@ -141,8 +138,8 @@ laplacian.neighbor_graph <- function(x, normalized=FALSE, ...) {
 #' @return If i is provided, a list containing the neighbors of node i. If i is missing, a list with neighbors for all nodes.
 #'
 #' @examples
-#' \dontrun{
-#' adj_matrix <- Matrix::Matrix(c(0, 1, 1, 0, 1, 0, 1, 0, 0), 
+#' \donttest{
+#' adj_matrix <- Matrix::Matrix(c(0, 1, 1, 0, 1, 0, 1, 0, 0),
 #'                             nrow = 3, byrow = TRUE, sparse = TRUE)
 #' ng <- neighbor_graph(adj_matrix)
 #' neighbors(ng, 1)  # Neighbors of node 1
@@ -152,12 +149,11 @@ laplacian.neighbor_graph <- function(x, normalized=FALSE, ...) {
 #' @method neighbors neighbor_graph
 #' @export
 neighbors.neighbor_graph <- function(x, i, ...) {
-  if (!missing(i)) {
-    igraph::adjacent_vertices(x$G,i)
+  if (missing(i)) {
+    lapply(igraph::adjacent_vertices(x$G, igraph::V(x$G)), igraph::as_ids)
   } else {
-    igraph::adjacent_vertices(x$G)
+    lapply(i, function(idx) igraph::as_ids(igraph::neighbors(x$G, idx)))
   }
-
 }
 
 #' Compute node density for neighbor_graph object
@@ -176,7 +172,6 @@ neighbors.neighbor_graph <- function(x, i, ...) {
 #'
 #' @examples
 #' \donttest{
-#' # Create example data and graph
 #' X <- matrix(rnorm(30), nrow = 10, ncol = 3)
 #' adj_matrix <- Matrix::Matrix(diag(10), sparse = TRUE)
 #' ng <- neighbor_graph(adj_matrix)
@@ -187,13 +182,14 @@ neighbors.neighbor_graph <- function(x, i, ...) {
 #' @export
 node_density.neighbor_graph <- function(x, X, ...) {
   L <- neighbors(x, 1:nvertices(x))
-  d <- sapply(1:length(L), function(i) {
+  d <- vapply(seq_along(L), function(i) {
     ind <- L[[i]]
+    if (length(ind) == 0) return(0)
     xi <- X[i,]
     xnn <- X[ind,,drop=FALSE]
     S <- sum(sweep(xnn, 2, xi, "-")^2)
-    1/(length(ind)^2) * S
-  })
+    S / (length(ind)^2)
+  }, numeric(1))
 
   d
 }
@@ -217,7 +213,7 @@ node_density.neighbor_graph <- function(x, X, ...) {
 #' @export
 edges.neighbor_graph <- function(x, ...) {
   ret <- igraph::as_data_frame(x$G, what="edges")
-  cbind(ret[,1], ret[,2])
+  cbind(as.character(ret[,1]), as.character(ret[,2]))
 }
 
 
@@ -235,7 +231,6 @@ edges.neighbor_graph <- function(x, ...) {
 #' adj_matrix <- Matrix::Matrix(c(0, 1, 1, 0, 1, 0, 1, 0, 0), 
 #'                             nrow = 3, byrow = TRUE, sparse = TRUE)
 #' ng <- neighbor_graph(adj_matrix)
-#' # non_neighbors(ng, 1)  # Non-neighbors of node 1
 #'
 #' @method non_neighbors neighbor_graph
 #' @export
@@ -244,7 +239,7 @@ non_neighbors.neighbor_graph <- function(x, i, ...) {
   all_vertices <- seq_len(igraph::vcount(x$G))
 
   # Get the neighbors of the node 'i'
-  neighbors_i <- neighbors(x, i)
+  neighbors_i <- unlist(neighbors(x, i), use.names = FALSE)
 
   # Find the non-neighbors by excluding the neighbors and the node itself
   non_neighbors <- setdiff(all_vertices, c(i, neighbors_i))
@@ -272,5 +267,3 @@ non_neighbors.neighbor_graph <- function(x, i, ...) {
 nvertices.neighbor_graph <- function(x,...) {
   igraph::vcount(x$G)
 }
-
-

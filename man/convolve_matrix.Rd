@@ -7,15 +7,24 @@
 convolve_matrix(X, Kern, normalize = FALSE)
 }
 \arguments{
-\item{X}{A data matrix to be convolved.}
+\item{X}{A data matrix to be transformed (n x p).}
 
-\item{Kern}{A kernel matrix used for the convolution.}
+\item{Kern}{A square kernel matrix (p x p) used for the transformation.}
 
-\item{normalize}{A logical flag indicating whether to normalize the kernel matrix before performing the convolution (default: FALSE).}
+\item{normalize}{A logical flag indicating whether to apply symmetric normalization
+D^(-1/2) Kern D^(-1/2) before multiplication (default: FALSE).}
 }
 \value{
-A matrix resulting from the convolution of the data matrix `X` with the kernel matrix `Kern`.
+A matrix resulting from X \%*\% Kern (or normalized version).
+
+A matrix resulting from \code{X \%*\% Kern} (or the normalized version when \code{normalize=TRUE}).
 }
 \description{
-Performs a convolution operation on a given data matrix `X` using a specified kernel matrix `Kern`.
+Performs right-multiplication of a data matrix `X` by a kernel matrix `Kern`,
+optionally with symmetric normalization.
+}
+\examples{
+X <- matrix(1:6, nrow=2)
+K <- diag(3)
+convolve_matrix(X, K)
 }

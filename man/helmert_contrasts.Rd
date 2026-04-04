@@ -20,7 +20,6 @@ suitable for use with effect-coded kernels. The resulting contrasts
 are orthonormal, which can improve numerical stability.
 }
 \examples{
-# Two factors with 3 and 4 levels  
 contrasts <- helmert_contrasts(c(A=3, B=4))
 print(dim(contrasts$A))  # 3 x 2
 print(dim(contrasts$B))  # 4 x 3

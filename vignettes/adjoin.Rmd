@@ -1,0 +1,366 @@
+---
+title: Getting Started with adjoin
+output:
+  rmarkdown::html_vignette:
+    toc: yes
+    toc_depth: 2.0
+    css: albers.css
+    includes:
+      in_header: albers-header.html
+params:
+  family: teal
+  preset: homage
+resource_files:
+- albers.css
+- albers.js
+- albers-header.html
+
+vignette: >
+  %\VignetteIndexEntry{Getting Started with adjoin}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 6,
+  fig.height = 4
+)
+```
+
+```{r albers-classes, echo=FALSE, results='asis'}
+cat(sprintf(
+  paste0(
+    '<script>document.addEventListener("DOMContentLoaded",function(){',
+    'document.body.classList.remove("palette-red","palette-lapis","palette-ochre","palette-teal","palette-green","palette-violet","preset-homage","preset-study","preset-structural","preset-adobe","preset-midnight");',
+    'document.body.classList.add("palette-%s","preset-%s");',
+    '});</script>'
+  ),
+  params$family,
+  params$preset
+))
+```
+
+```{r load-pkg}
+library(adjoin)
+library(Matrix)
+```
+
+## The problem: from points to a graph
+
+Many methods in machine learning, spatial analysis, and network science share a
+common first step: *how similar is each data point to its neighbors?* The answer
+is an **adjacency matrix** — an n×n sparse matrix where entry (i, j) holds the
+similarity between points i and j, and off-neighbor entries are zero.
+
+`adjoin` constructs these matrices from three kinds of inputs:
+
+- **Feature data** (numeric matrices) — via k-nearest neighbor graphs
+- **Spatial coordinates** — via radius- or grid-based adjacency
+- **Class labels** (factors) — via within-class connectivity
+
+The output is always a `neighbor_graph`, a lightweight object that exposes a
+consistent interface for extracting the adjacency matrix, computing the
+graph Laplacian, and inspecting edges.
+
+---
+
+## Your first graph
+
+The easiest entry point is `graph_weights()`. Give it a data matrix, a
+neighborhood size `k`, and a weight mode, and it returns a ready-to-use
+`neighbor_graph`.
+
+```{r first-graph}
+set.seed(42)
+X  <- as.matrix(iris[, 1:4])          # 150 flowers × 4 measurements
+ng <- graph_weights(X, k = 5,
+                    neighbor_mode = "knn",
+                    weight_mode   = "heat")
+A  <- adjacency(ng)                    # sparse 150×150 similarity matrix
+cat("nodes:", nvertices(ng), " | edges:", nnzero(A) / 2, "\n")
+```
+
+`graph_weights()` searched for the 5 nearest Euclidean neighbors of each
+flower, converted distances to similarities with a heat kernel
+(exp(−d²/2σ²)), then symmetrized the result. The adjacency matrix is stored
+as a sparse `Matrix` — most of its 22,500 entries are zero.
+
+```{r first-graph-plot, echo = FALSE, fig.cap = "Adjacency matrix reordered by species. The three diagonal blocks show that flowers connect mostly within their own species.", out.width = "65%"}
+ord    <- order(iris$Species)
+A_ord  <- as.matrix(A[ord, ord])
+breaks <- cumsum(table(iris$Species)) / nrow(iris)
+
+image(seq(0, 1, length.out = nrow(A_ord)),
+      seq(0, 1, length.out = ncol(A_ord)),
+      A_ord,
+      col  = colorRampPalette(c("white", "#2c7bb6"))(50),
+      axes = FALSE, xlab = "", ylab = "",
+      main = "Feature-similarity adjacency (iris, k = 5, heat kernel)")
+abline(v = breaks[-3], h = breaks[-3], col = "firebrick", lwd = 1.5)
+legend("topright", fill = "firebrick", legend = "species boundary",
+       bty = "n", cex = 0.8)
+```
+
+The three diagonal blocks confirm that the graph is recovering species
+structure from raw petal and sepal measurements — no labels required.
+
+---
+
+## The core workflow
+
+Every feature-similarity graph follows the same three-step pipeline.
+
+**Step 1 — Prepare data.** Rows are observations; columns are features.
+
+```{r step1}
+X <- as.matrix(iris[, 1:4])
+dim(X)
+```
+
+**Step 2 — Build the graph.** Pass the matrix to `graph_weights()`.
+
+```{r step2}
+ng <- graph_weights(X, k = 5, weight_mode = "heat", sigma = 0.5)
+```
+
+**Step 3 — Use the graph.** Extract what downstream methods need.
+
+```{r step3}
+A      <- adjacency(ng)                  # sparse similarity matrix
+L      <- laplacian(ng)                  # L = D − A
+L_norm <- laplacian(ng, normalized = TRUE)  # I − D^{-1/2} A D^{-1/2}
+```
+
+The Laplacian is the backbone of spectral clustering, diffusion maps, and
+graph-regularized learning. Both the unnormalized and symmetric-normalized
+forms are available directly.
+
+---
+
+## Inside a neighbor_graph
+
+A `neighbor_graph` is a named list:
+
+```{r inspect}
+names(ng)
+str(ng$params, max.level = 1)
+```
+
+- **`$G`** — an `igraph` object holding the full topology
+- **`$params`** — the construction parameters, kept for reproducibility
+
+Three accessors cover the most common needs:
+
+```{r accessors}
+nvertices(ng)      # number of nodes
+head(edges(ng))    # edge list as a character matrix
+```
+
+---
+
+## Choosing a weight mode
+
+The `weight_mode` argument maps Euclidean distances to similarity scores.
+
+| Mode | Similarity | Best for |
+|:-----|:-----------|:---------|
+| `"heat"` | exp(−d²/2σ²) | General purpose; default |
+| `"binary"` | 1 for every neighbor | Unweighted structural analysis |
+| `"cosine"` | dot product after L2 norm | Direction matters, not magnitude |
+| `"normalized"` | correlation-like | Zero-mean, unit-variance features |
+
+```{r weight-modes}
+ng_norm <- graph_weights(X, k = 5, weight_mode = "normalized")
+ng_cos  <- graph_weights(X, k = 5, weight_mode = "cosine")
+ng_heat <- graph_weights(X, k = 5, weight_mode = "heat", sigma = 0.5)
+```
+
+```{r weight-mode-plot, echo = FALSE, fig.cap = "Edge weight distributions for three weight modes. All three spread similarity scores continuously across (0, 1].", fig.width = 7, fig.height = 3.5}
+w_norm <- adjacency(ng_norm)@x;  w_norm <- w_norm[w_norm > 0]
+w_cos  <- adjacency(ng_cos)@x;   w_cos  <- w_cos[w_cos > 0]
+w_heat <- adjacency(ng_heat)@x;  w_heat <- w_heat[w_heat > 0]
+
+par(mfrow = c(1, 3), mar = c(4, 3, 2.5, 1))
+hist(w_norm, breaks = 30, col = "#4dac26", main = "normalized",
+     xlab = "edge weight", ylab = "")
+hist(w_cos,  breaks = 30, col = "#d01c8b", main = "cosine",
+     xlab = "edge weight", ylab = "")
+hist(w_heat, breaks = 30, col = "#2c7bb6", main = "heat (sigma = 0.5)",
+     xlab = "edge weight", ylab = "")
+```
+
+Soft weights preserve the *degree* of similarity, not just its presence —
+nearby neighbors score near 1, distant ones near 0. The `"binary"` mode
+(not shown) produces unweighted graphs where every neighbor gets weight 1.
+
+---
+
+## Controlling symmetry
+
+By default, if either point nominated the other as a neighbor the edge is
+included (`type = "normal"`, union). Two alternatives trade off sparsity
+and confidence:
+
+```{r symmetry}
+# mutual: both must nominate each other (sparser, higher confidence)
+ng_mutual <- graph_weights(X, k = 5, weight_mode = "heat",
+                           type = "mutual")
+
+# asym: directed — i→j does not imply j→i
+ng_asym   <- graph_weights(X, k = 5, weight_mode = "heat",
+                           type = "asym")
+
+# edge counts: normal ≥ mutual
+c(normal = nnzero(adjacency(ng))       / 2,
+  mutual = nnzero(adjacency(ng_mutual)) / 2)
+```
+
+Mutual graphs are useful when false positives are costly — for example,
+selecting a reliable training neighborhood for a classifier.
+
+---
+
+## The nnsearcher: reusable search index
+
+For repeated queries, build an `nnsearcher` index once and query it as
+many times as needed.
+
+```{r nnsearcher}
+searcher <- nnsearcher(X, labels = iris$Species)
+```
+
+Find neighbors for every point:
+
+```{r find-nn}
+nn_result <- find_nn(searcher, k = 5)
+names(nn_result)   # indices, distances, labels
+```
+
+Search within a subset (e.g., setosa flowers only):
+
+```{r find-nn-among}
+nn_setosa <- find_nn_among(searcher, k = 3, idx = 1:50)
+```
+
+Search between two groups (setosa vs. versicolor):
+
+```{r find-nn-between}
+nn_cross <- find_nn_between(searcher, k = 3, idx1 = 1:50, idx2 = 51:100)
+```
+
+Build a `neighbor_graph` from the index:
+
+```{r nn-to-graph, eval = FALSE}
+ng2 <- neighbor_graph(searcher, k = 5, transform = "heat", sigma = 0.5)
+```
+
+The two-step approach is useful when you need to inspect raw distances
+before committing to a kernel, or when you want to reuse the index across
+multiple graph configurations.
+
+---
+
+## Class-based graphs
+
+When class labels are available, `class_graph()` connects every pair of
+same-class points — creating a fully connected block structure.
+
+```{r class-graph}
+cg <- class_graph(iris$Species)
+nclasses(cg)
+```
+
+```{r class-graph-plot, echo = FALSE, fig.cap = "class_graph adjacency for iris. Each block is a fully connected class; no edges cross species boundaries.", out.width = "65%"}
+A_cg <- as.matrix(adjacency(cg))
+ord  <- order(iris$Species)
+breaks <- cumsum(table(iris$Species)) / nrow(iris)
+
+image(seq(0, 1, length.out = nrow(A_cg)),
+      seq(0, 1, length.out = ncol(A_cg)),
+      A_cg[ord, ord],
+      col  = colorRampPalette(c("white", "#d7191c"))(3),
+      axes = FALSE, xlab = "", ylab = "",
+      main = "class_graph: within-species connectivity (iris)")
+abline(v = breaks[-3], h = breaks[-3], col = "grey50", lwd = 1)
+```
+
+`class_graph` objects are `neighbor_graph` subclasses — every accessor
+(`adjacency()`, `laplacian()`, `edges()`) works on them too. They also
+support class-specific queries:
+
+```{r class-queries, eval = FALSE}
+# within-class neighbors for every point
+wc <- within_class_neighbors(cg, X, k = 3)
+
+# nearest between-class neighbors for every point
+bc <- between_class_neighbors(cg, X, k = 3)
+```
+
+This is the building block for supervised dimensionality reduction methods
+like LDA and neighborhood component analysis.
+
+---
+
+## Cross-graph similarity
+
+To connect two *different* datasets, use `cross_adjacency()`:
+
+```{r cross-adj}
+X_ref   <- as.matrix(iris[1:100,  1:4])   # 100 reference points
+X_query <- as.matrix(iris[101:150, 1:4])  # 50 query points
+
+# 50×100 sparse matrix: row i = query flower, col j = nearest reference
+C <- cross_adjacency(X_ref, X_query, k = 3, as = "sparse")
+dim(C)
+```
+
+Each row holds the heat-kernel similarities from one query point to its 3
+nearest matches in the reference set. This is the foundation for cross-modal
+retrieval, domain adaptation, and inter-subject alignment.
+
+---
+
+## Normalizing for diffusion and random walks
+
+Raw adjacency matrices are degree-imbalanced: high-degree nodes dominate.
+`normalize_adjacency()` row-normalizes to produce a Markov transition matrix:
+
+```{r normalize}
+A_raw  <- adjacency(ng)
+A_norm <- normalize_adjacency(A_raw)
+
+# Confirm rows sum to 1 (stochastic matrix)
+range(Matrix::rowSums(A_norm))
+```
+
+Row-stochastic matrices are needed for random walk analysis,
+`compute_diffusion_kernel()`, and `compute_diffusion_map()`.
+
+---
+
+## Quick-reference: objects and constructors
+
+| Class | Constructor(s) | What it holds |
+|:------|:---------------|:--------------|
+| `neighbor_graph` | `graph_weights()`, `weighted_knn()`, `neighbor_graph()` | igraph + construction params |
+| `class_graph` | `class_graph()` | Extends `neighbor_graph` with class structure |
+| `nnsearcher` | `nnsearcher()` | Fast kNN index for repeated queries |
+| `nn_search` | `find_nn()`, `find_nn_among()`, `find_nn_between()` | Raw search result (indices + distances) |
+
+---
+
+## Where to go next
+
+- **Spatial graphs** — `spatial_adjacency()` builds graphs from 2-D/3-D grid
+  coordinates rather than feature vectors; see `?spatial_adjacency`.
+- **Diffusion** — `compute_diffusion_kernel()` and `compute_diffusion_map()`
+  propagate information through a graph and yield spectral embeddings.
+- **Label similarity** — `label_matrix()` and `expand_label_similarity()`
+  create soft label-overlap matrices for semi-supervised settings.
+- **Bandwidth selection** — `estimate_sigma()` automatically picks a heat
+  kernel bandwidth from your data distribution.

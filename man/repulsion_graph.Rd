@@ -55,42 +55,33 @@ classes within a larger network or dataset.
 \examples{
 library(Matrix)
 
-# --- Example 1: Simple Random Data ---
 set.seed(123)
 N <- 50
-# Create a base graph (e.g., from features)
 X <- matrix(rnorm(N * 5), N, 5)
 W_adj <- Matrix(rsparsematrix(N, N, 0.1, symmetric = TRUE)) # Base adjacency
 diag(W_adj) <- 0
 W_ng <- neighbor_graph(W_adj) # Convert to neighbor_graph
 
-# Define class labels
 labels <- factor(sample(1:3, N, replace = TRUE))
 cg <- class_graph(labels)
 
-# Create a weighted repulsion graph
 R_weighted <- repulsion_graph(W_ng, cg, method = "weighted")
 print(R_weighted)
 plot(R_weighted$G, vertex.color = labels, vertex.size=8, vertex.label=NA)
 title("Weighted Repulsion Graph (Edges only between classes)")
 
-# Create a binary repulsion graph
 R_binary <- repulsion_graph(W_ng, cg, method = "binary")
 print(R_binary)
 
-# --- Example 2: Iris Dataset ---
 data(iris)
 X_iris <- as.matrix(iris[, 1:4])
 labels_iris <- iris[, 5]
 cg_iris <- class_graph(labels_iris)
 
-# Build a kNN graph first
 W_iris_knn <- graph_weights(X_iris, k = 5, weight_mode = "heat", sigma = 0.7)
 
-# Create repulsion graph (weighted)
 R_iris <- repulsion_graph(W_iris_knn, cg_iris, method = "weighted")
 print(R_iris)
-# Edges should primarily connect different iris species
 plot(R_iris$G, vertex.color = as.numeric(labels_iris), vertex.size=5, vertex.label=NA)
 title("Iris Repulsion Graph (k=5, heat weights)")
 

@@ -29,3 +29,7 @@ The Matrix object with distances converted to similarities.
 \description{
 Convert distance values in a sparse Matrix to similarity values.
 }
+\examples{
+m <- Matrix::Matrix(c(0,1,2,0), nrow=2, sparse=TRUE)
+dist_to_sim(m, method="heat", sigma=1)
+}

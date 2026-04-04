@@ -25,3 +25,10 @@ An object of class "nn_search" containing indices, distances, and labels.
 \description{
 Search for the k nearest neighbors from one set of points to another set.
 }
+\examples{
+\donttest{
+X <- matrix(rnorm(40), nrow=10)
+searcher <- nnsearcher(X)
+find_nn_between(searcher, k=2, idx1=1:5, idx2=6:10)
+}
+}

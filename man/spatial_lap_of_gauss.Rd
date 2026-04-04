@@ -18,10 +18,8 @@ A sparse symmetric matrix representing the computed spatial Laplacian of Gaussia
 This function computes the spatial Laplacian of Gaussian for a given coordinate matrix using a specified sigma value.
 }
 \examples{
-# Create an example coordinate matrix
 coord_mat <- matrix(c(1, 2, 3, 4, 5, 6), nrow = 3, ncol = 2)
 
-# Compute the spatial Laplacian of Gaussian with sigma = 2
 result <- spatial_lap_of_gauss(coord_mat, sigma = 2)
 
 }

@@ -1,5 +1,4 @@
-#' @useDynLib neighborweights, .registration=TRUE
-#' @importFrom Rcpp sourceCpp
+#' @useDynLib adjoin, .registration=TRUE
 NULL
 
 #' Compute a spatial autocorrelation matrix
@@ -12,6 +11,7 @@ NULL
 #' @param cds A numeric matrix or data.frame of spatial coordinates (x, y, or more dimensions) with the same number of rows as X.
 #' @param radius A positive numeric value representing the search radius for the radius-based nearest neighbor search. Default is 8.
 #' @param nsamples A positive integer indicating the number of samples to be taken for fitting the GAM. Default is 1000.
+#' @param maxk Maximum number of neighbors to request from the NN search before radius filtering (prevents O(n^2) memory). Default 64.
 #'
 #' @return A sparse matrix representing the spatial autocorrelation matrix for the input data.
 #'
@@ -21,20 +21,31 @@ NULL
 #' @importFrom Matrix sparseMatrix
 #' @importFrom assertthat assert_that
 #' @export
-spatial_autocor <- function(X, cds, radius=8, nsamples=1000) {
+#' @examples
+#' \donttest{
+#' set.seed(1)
+#' cds <- as.matrix(expand.grid(1:10, 1:10))
+#' X <- matrix(rnorm(5*nrow(cds)), nrow=5, ncol=nrow(cds))
+#' S <- spatial_autocor(X, cds, radius=5, nsamples=100, maxk=50)
+#' dim(S)
+#' }
+spatial_autocor <- function(X, cds, radius=8, nsamples=1000, maxk=64) {
   assertthat::assert_that(radius > 0)
+  assertthat::assert_that(maxk > 0)
   if (nrow(cds) < nsamples) {
     nsamples <- nrow(cds)
   }
 
-  nabe <- Rnanoflann::nn(data = cds, points = cds, k = nrow(cds), radius = radius)
-  ids <- sample(1:nrow(nabe$indices), nsamples)
+  k_use <- min(maxk, nrow(cds))
+  nabe <- Rnanoflann::nn(data = cds, points = cds, k = k_use, radius = radius)
+  ids <- sample(seq_len(nrow(nabe$indices)), nsamples)
 
   ret <- do.call(rbind, lapply(ids, function(id) {
     ind <- nabe$indices[id,]
     d <- nabe$distances[id,]
-    ind <- ind[d <= radius & !is.na(ind)]
-    d <- d[d <= radius & !is.na(d)]
+    valid <- d <= radius & !is.na(ind) & ind > 0 & !is.na(d)
+    ind <- ind[valid]
+    d <- d[valid]
     if (length(ind) > 1) {
       valmat <- X[,ind[-1]]
       vals <- X[,ind[1]]
@@ -45,12 +56,19 @@ spatial_autocor <- function(X, cds, radius=8, nsamples=1000) {
     }
   }))
 
-  gam.1 <- gam(cor ~ s(d), data=ret)
+  if (nrow(ret) == 0) {
+    return(Matrix::sparseMatrix(i = integer(0), j = integer(0),
+                                dims=c(nrow(cds), nrow(cds))))
+  }
 
-  trip <- do.call(rbind, lapply(1:nrow(cds), function(i) {
+  if (!requireNamespace("mgcv", quietly = TRUE)) stop("Package 'mgcv' is required. Install with install.packages('mgcv')")
+  k_gam <- max(3L, min(10L, length(unique(ret$d)) - 1L))
+  gam.1 <- mgcv::gam(cor ~ s(d, k = k_gam), data = ret)
+
+  trip <- do.call(rbind, lapply(seq_len(nrow(cds)), function(i) {
     ind <- nabe$indices[i,]
     d <- nabe$distances[i,]
-    valid <- d <= radius & !is.na(ind) & !is.na(d)
+    valid <- d <= radius & !is.na(ind) & !is.na(d) & ind > 0
     j <- ind[valid][-1]
     d <- d[valid][-1]
     if (length(j) > 0) {
@@ -59,6 +77,11 @@ spatial_autocor <- function(X, cds, radius=8, nsamples=1000) {
       matrix(nrow=0, ncol=3)
     }
   }))
+
+  if (nrow(trip) == 0) {
+    return(Matrix::sparseMatrix(i = integer(0), j = integer(0),
+                                dims=c(nrow(cds), nrow(cds))))
+  }
 
   trip[,3] <- predict(gam.1, newdata=data.frame(d=trip[,3]))
   smat <- Matrix::sparseMatrix(i=trip[,1], j=trip[,2], x=trip[,3], dims=c(nrow(cds),
@@ -84,6 +107,15 @@ spatial_autocor <- function(X, cds, radius=8, nsamples=1000) {
 #' @importFrom assertthat assert_that
 #' @importFrom Matrix sparseMatrix
 #' @export
+#' @examples
+#' coords <- list(matrix(c(0,0,1,0), ncol=2, byrow=TRUE),
+#'                matrix(c(0,1,1,1), ncol=2, byrow=TRUE))
+#' feats  <- list(matrix(rnorm(2), ncol=1),
+#'                matrix(rnorm(2), ncol=1))
+#' fself <- function(c,f) spatial_adjacency(c, normalized=FALSE, include_diagonal=FALSE)
+#' fbetween <- function(c1,c2,f1,f2) cross_spatial_adjacency(c1,c2, normalized=FALSE)
+#' M <- pairwise_adjacency(coords, feats, fself, fbetween)
+#' dim(M)
 pairwise_adjacency <- function(Xcoords, Xfeats, fself, fbetween) {
   assertthat::assert_that(length(Xcoords) == length(Xfeats))
   ninstances <- unlist(lapply(Xcoords, nrow))
@@ -98,13 +130,13 @@ pairwise_adjacency <- function(Xcoords, Xfeats, fself, fbetween) {
 
   offsets <- cumsum(c(0, ninstances[1:(nsets-1)]))
 
-  block_indices <- sapply(1:length(ninstances), function(i) {
+  block_indices <- lapply(seq_along(ninstances), function(i) {
     seq(offsets[i] + 1, offsets[i] + ninstances[i])
   })
 
-  cmb <- t(combn(1:length(Xcoords), 2))
+  cmb <- t(combn(seq_along(Xcoords), 2))
 
-  bet <- do.call(rbind, lapply(1:nrow(cmb), function(i) {
+  bet <- do.call(rbind, lapply(seq_len(nrow(cmb)), function(i) {
     a <- cmb[i,1]
     b <- cmb[i,2]
     sm <- fbetween(Xcoords[[a]], Xcoords[[b]], Xfeats[[a]], Xfeats[[b]])
@@ -114,7 +146,7 @@ pairwise_adjacency <- function(Xcoords, Xfeats, fself, fbetween) {
     rbind(r1,r2)
   }))
 
-  w <- do.call(rbind, lapply(1:length(Xcoords), function(i) {
+  w <- do.call(rbind, lapply(seq_along(Xcoords), function(i) {
     sm <- fself(Xcoords[[i]], Xfeats[[i]])
     sm_nc <- as (sm, "dgTMatrix")
     cbind (i = sm_nc@i + 1 + offsets[i], j = sm_nc@j + 1 + offsets[i], x = sm_nc@x)
@@ -137,24 +169,26 @@ pairwise_adjacency <- function(Xcoords, Xfeats, fself, fbetween) {
 #' @param sigma Numeric, the sigma parameter for the heat kernel (default is dthresh/2)
 #' @param normalized Logical, whether the adjacency matrix should be normalized (default is TRUE)
 #' @param stochastic Logical, whether the adjacency matrix should be stochastic (default is FALSE)
+#' @param handle_isolates How to treat zero-degree nodes when normalizing: "self_loop" (default), "keep_zero", or "drop".
 #'
 #' @return A sparse symmetric matrix representing the computed spatial Laplacian
 #'
 #' @examples
-#' # Create an example coordinate matrix
 #' coord_mat <- matrix(c(1, 2, 3, 4, 5, 6), nrow = 3, ncol = 2)
 #'
-#' # Compute the spatial Laplacian matrix using the binary weight mode
 #' result <- spatial_laplacian(coord_mat, dthresh = 1.42, nnk = 27, weight_mode = "binary")
 #'
 #' @export
 spatial_laplacian <- function(coord_mat, dthresh=1.42, nnk=27,weight_mode=c("binary", "heat"),
                               sigma=dthresh/2,
-                              normalized=TRUE, stochastic=FALSE) {
+                              normalized=TRUE, stochastic=FALSE,
+                              handle_isolates=c("self_loop","keep_zero","drop")) {
 
   weight_mode <- match.arg(weight_mode)
+  handle_isolates <- match.arg(handle_isolates)
   adj <- spatial_adjacency(coord_mat, dthresh, nnk,weight_mode, sigma,
-                           include_diagonal=FALSE, normalized, stochastic)
+                           include_diagonal=FALSE, normalized, stochastic,
+                           handle_isolates=handle_isolates)
   L <- Diagonal(x=rowSums(adj))  - adj
 }
 
@@ -169,15 +203,14 @@ spatial_laplacian <- function(coord_mat, dthresh=1.42, nnk=27,weight_mode=c("bin
 #' @return A sparse symmetric matrix representing the computed spatial Laplacian of Gaussian
 #'
 #' @examples
-#' # Create an example coordinate matrix
 #' coord_mat <- matrix(c(1, 2, 3, 4, 5, 6), nrow = 3, ncol = 2)
 #'
-#' # Compute the spatial Laplacian of Gaussian with sigma = 2
 #' result <- spatial_lap_of_gauss(coord_mat, sigma = 2)
 #'
 #' @export
 spatial_lap_of_gauss <- function(coord_mat, sigma=2) {
-  lap <- spatial_laplacian(coord_mat, weight_mode="binary", normalized=FALSE, nnk=ncol(coord_mat)^3, dthresh=sigma*2.5)
+  nnk <- min(nrow(coord_mat), max(27, ncol(coord_mat)^2))
+  lap <- spatial_laplacian(coord_mat, weight_mode="binary", normalized=FALSE, nnk=nnk, dthresh=sigma*2.5)
   #lap <- spatial_laplacian(coord_mat, weight_mode="binary", nnk=ncol(coord_mat)^3)
   adj <- spatial_smoother(coord_mat,  sigma=sigma)
   lap %*% adj
@@ -195,14 +228,13 @@ spatial_lap_of_gauss <- function(coord_mat, sigma=2) {
 #' @return A sparse symmetric matrix representing the computed Difference of Gaussians
 #'
 #' @examples
-#' # Create an example coordinate matrix
 #' coord_mat <- matrix(c(1, 2, 3, 4, 5, 6), nrow = 3, ncol = 2)
 #'
-#' # Compute the Difference of Gaussians with sigma1 = 2 and sigma2 = 3.2
 #' result <- difference_of_gauss(coord_mat, sigma1 = 2, sigma2 = 3.2)
 #'
 #' @export
-difference_of_gauss <- function(coord_mat, sigma1=2, sigma2=sigma1 * 1.6, nnk=3^(ncol(coord_mat))) {
+difference_of_gauss <- function(coord_mat, sigma1=2, sigma2=sigma1 * 1.6,
+                                nnk=min(nrow(coord_mat), max(27, ncol(coord_mat)^2))) {
   adj1 <- spatial_smoother(coord_mat,  sigma=sigma1, stochastic=TRUE, nnk=nnk)
   adj2 <- spatial_smoother(coord_mat,  sigma=sigma2,stochastic=TRUE, nnk=nnk)
   adj1 - adj2
@@ -220,30 +252,42 @@ difference_of_gauss <- function(coord_mat, sigma1=2, sigma2=sigma1 * 1.6, nnk=3^
 #' @param sigma Numeric, the sigma parameter for the Gaussian smoother (default is 5)
 #' @param nnk Integer, the number of nearest neighbors for adjacency (default is 3^(ncol(coord_mat)))
 #' @param stochastic Logical, whether the adjacency matrix should be doubly stochastic (default is TRUE)
+#' @param handle_isolates How to treat zero-degree nodes when normalizing: "self_loop" adds a self-loop (default), "keep_zero" leaves them as zero, or "drop" removes them from the matrix.
 #'
 #' @return A sparse matrix representing the computed spatial smoother. If stochastic=TRUE, the matrix is row-stochastic (rows sum to 1) but not symmetric. If stochastic=FALSE, the matrix is symmetric but not row-stochastic.
 #'
 #' @examples
-#' # Create an example coordinate matrix
 #' coord_mat <- matrix(c(1, 2, 3, 4, 5, 6), nrow = 3, ncol = 2)
 #'
-#' # Compute the spatial smoother matrix with sigma = 5
 #' result <- spatial_smoother(coord_mat, sigma = 5, nnk = 3^(ncol(coord_mat)), stochastic = TRUE)
 #'
 #' @export
-spatial_smoother <- function(coord_mat, sigma=5, nnk=3^(ncol(coord_mat)), stochastic=TRUE) {
+spatial_smoother <- function(coord_mat, sigma=5, nnk=3^(ncol(coord_mat)), stochastic=TRUE,
+                             handle_isolates=c("self_loop","keep_zero","drop")) {
+  handle_isolates <- match.arg(handle_isolates)
+
   adj <- spatial_adjacency(coord_mat, dthresh=sigma*1, nnk=nnk,weight_mode="heat", sigma,
                            include_diagonal=TRUE, normalized=FALSE, stochastic=FALSE)
 
-  D <- Matrix::rowSums(adj)
+  rs <- Matrix::rowSums(adj)
+  zero_rows <- which(rs == 0 | !is.finite(rs))
 
-  adj <- 1/D * adj
+  if (length(zero_rows) && handle_isolates == "self_loop") {
+    adj[cbind(zero_rows, zero_rows)] <- adj[cbind(zero_rows, zero_rows)] + 1
+    rs <- Matrix::rowSums(adj)
+  } else if (length(zero_rows) && handle_isolates == "drop") {
+    keep <- setdiff(seq_len(nrow(adj)), zero_rows)
+    adj <- adj[keep, keep, drop=FALSE]
+    rs <- rs[keep]
+  }
+
+  inv <- 1/rs
+  inv[!is.finite(inv)] <- 0
+  adj <- Diagonal(x=inv) %*% adj
+
   if (stochastic) {
     adj <- make_doubly_stochastic(adj)
-    # Note: Symmetrization (adj + t(adj))/2 would break row-stochastic property
-    # Only symmetrize when not requiring stochastic properties
   } else {
-    # When not stochastic, we can symmetrize to ensure the matrix is symmetric
     adj <- (adj + t(adj))/2
   }
 
@@ -264,6 +308,7 @@ spatial_smoother <- function(coord_mat, sigma=5, nnk=3^(ncol(coord_mat)), stocha
 #' @param include_diagonal Logical, whether to assign 1 to diagonal elements (default is TRUE)
 #' @param normalized Logical, whether to make row elements sum to 1 (default is TRUE)
 #' @param stochastic Logical, whether to make column elements also sum to 1 (only relevant if normalized == TRUE) (default is FALSE)
+#' @param handle_isolates How to treat zero-degree nodes when normalizing: "self_loop" adds a self-loop (default), "keep_zero" leaves them as zero, or "drop" removes them from the matrix.
 #'
 #' @return A sparse symmetric matrix representing the computed spatial adjacency
 #'
@@ -275,7 +320,10 @@ spatial_smoother <- function(coord_mat, sigma=5, nnk=3^(ncol(coord_mat)), stocha
 #' coord_mat = as.matrix(expand.grid(x=1:6, y=1:6))
 #' sa <- spatial_adjacency(coord_mat)
 spatial_adjacency <- function(coord_mat, dthresh=sigma*3, nnk=27, weight_mode=c("binary", "heat"), sigma=5,
-                              include_diagonal=TRUE, normalized=TRUE, stochastic=FALSE) {
+                              include_diagonal=TRUE, normalized=TRUE, stochastic=FALSE,
+                              handle_isolates=c("self_loop","keep_zero","drop")) {
+
+  handle_isolates <- match.arg(handle_isolates)
 
   sm <- cross_spatial_adjacency(coord_mat, coord_mat, dthresh=dthresh,
                                 nnk=nnk, weight_mode=weight_mode,
@@ -288,7 +336,7 @@ spatial_adjacency <- function(coord_mat, dthresh=sigma*3, nnk=27, weight_mode=c(
   }
 
   if (normalized) {
-    sm <- normalize_adjacency(sm)
+    sm <- normalize_adjacency(sm, handle_isolates = handle_isolates)
   }
 
   if (stochastic) {
@@ -307,30 +355,43 @@ spatial_adjacency <- function(coord_mat, dthresh=sigma*3, nnk=27, weight_mode=c(
 #'
 #' @param A A numeric matrix for which to compute the doubly stochastic matrix
 #' @param iter Integer, the number of iterations to perform (default is 30)
+#' @param tol Numeric convergence tolerance; iteration stops when max row-sum deviation from 1 is below this value (default 1e-6)
 #'
 #' @return A numeric matrix representing the computed doubly stochastic matrix
 #'
 #' @export
 #'
 #' @examples
-#' # Create an example matrix
 #' A <- matrix(c(2, 4, 6, 8, 10, 12), nrow = 3, ncol = 2)
 #'
-#' # Compute the doubly stochastic matrix
 #' result <- make_doubly_stochastic(A, iter = 30)
-make_doubly_stochastic <- function(A, iter=30) {
+make_doubly_stochastic <- function(A, iter=30, tol=1e-6) {
+  if (!inherits(A, "Matrix")) {
+    A <- Matrix::Matrix(A, sparse=FALSE)
+  }
+
+  assertthat::assert_that(all(A@x >= 0), msg = "Input matrix must have non-negative entries for Sinkhorn-Knopp")
+
+  if (nrow(A) == ncol(A)) {
+    rsum <- Matrix::rowSums(A)
+    zero_rows <- which(rsum == 0 | !is.finite(rsum))
+    if (length(zero_rows)) {
+      A[cbind(zero_rows, zero_rows)] <- A[cbind(zero_rows, zero_rows)] + 1
+    }
+  }
+
   r <- rep(1, nrow(A))
   #Given A, let (n, n) = size(A) and initialize r = ones(n, 1);
 
-  for (k in 1:iter) {
+  for (k in seq_len(iter)) {
     c <- 1/t(A) %*% r
+    c[!is.finite(c)] <- 0
     r <- 1/(A %*% c)
+    r[!is.finite(r)] <- 0
+    Ab <- Diagonal(x=r[,1]) %*% A %*% Diagonal(x=c[,1])
+    if (max(abs(Matrix::rowSums(Ab) - 1)) < tol) break
   }
 
-  C <- Diagonal(x=c[,1])
-  R <- Diagonal(x=r[,1])
-
-  Ab <- R %*% A %*% C
   return(Ab)
 }
 
@@ -355,6 +416,7 @@ make_doubly_stochastic <- function(A, iter=30) {
 #'
 #' @param sm A sparse adjacency matrix representing the graph.
 #' @param symmetric A logical value indicating whether to symmetrize the matrix after normalization (default: TRUE).
+#' @param handle_isolates How to treat zero-degree nodes when normalizing: "self_loop" adds a self-loop (default), "keep_zero" leaves them as zero, or "drop" removes them from the matrix.
 #'
 #' @return A normalized and, if requested, symmetrized adjacency matrix.
 #'
@@ -365,11 +427,29 @@ make_doubly_stochastic <- function(A, iter=30) {
 #'
 #' @importFrom Matrix rowSums
 #' @export
-normalize_adjacency <- function(sm, symmetric=TRUE) {
+normalize_adjacency <- function(sm, symmetric=TRUE,
+                                handle_isolates=c("self_loop","keep_zero","drop")) {
+  handle_isolates <- match.arg(handle_isolates)
+
+  if (handle_isolates == "self_loop" && nrow(sm) == ncol(sm)) {
+    rs0 <- Matrix::rowSums(sm)
+    zero_rows <- which(rs0 == 0 | !is.finite(rs0))
+    if (length(zero_rows)) {
+      sm[cbind(zero_rows, zero_rows)] <- sm[cbind(zero_rows, zero_rows)] + 1
+    }
+  }
+
   D <- Matrix::rowSums(sm)
 
-  D1 <- Diagonal(length(D), x=1/sqrt(D))
-  sm <- D1 %*% sm %*% D1
+  if (handle_isolates == "drop" && nrow(sm) == ncol(sm)) {
+    keep <- which(D > 0 & is.finite(D))
+    sm <- sm[keep, keep, drop=FALSE]
+    D  <- D[keep]
+  }
+
+  inv <- 1/sqrt(D)
+  inv[!is.finite(inv)] <- 0
+  sm <- Diagonal(length(inv), x=inv) %*% sm %*% Diagonal(length(inv), x=inv)
 
   if (symmetric) {
     sm <- (sm + t(sm))/2
@@ -392,6 +472,7 @@ normalize_adjacency <- function(sm, symmetric=TRUE) {
 #' @param sigma the spatial sigma for the heat kernel weighting (default: 1)
 #' @param dthresh the threshold for the spatial distance
 #' @param normalized whether to normalize the rows to sum to 1
+#' @return A sparse cross-graph adjacency matrix of feature-weighted spatial similarities.
 #' @importFrom assertthat assert_that
 #' @export
 #'
@@ -425,26 +506,20 @@ cross_weighted_spatial_adjacency <- function(coord_mat1, coord_mat2,
   weight_mode <- match.arg(weight_mode)
 
   # Convert to list format for compatibility
-  indices_list <- lapply(1:nrow(full_nn$indices), function(i) {
+  indices_list <- lapply(seq_len(nrow(full_nn$indices)), function(i) {
     idx <- full_nn$indices[i,]
     dst <- full_nn$distances[i,]
     valid <- dst <= dthresh & !is.na(idx)
     idx[valid]
   })
   
-  distances_list <- lapply(1:nrow(full_nn$distances), function(i) {
+  distances_list <- lapply(seq_len(nrow(full_nn$distances)), function(i) {
     dst <- full_nn$distances[i,]
     valid <- dst <= dthresh & !is.na(dst)
-    dst[valid]^2  # Square distances for compatibility
+    dst[valid]
   })
 
-  lens <- sapply(indices_list, length)
-  lens <- ifelse(lens > maxk, maxk, lens)
-  #nels <- sum(sapply(indices_list, length))
-  nels <- sum(lens)
-
-
-  triplet <- cross_fspatial_weights(indices_list, lapply(distances_list, sqrt),
+  triplet <- cross_fspatial_weights(indices_list, distances_list,
                                     feature_mat1, feature_mat2,
                                     sigma, wsigma, alpha,
                                     maxk,
@@ -469,7 +544,7 @@ cross_weighted_spatial_adjacency <- function(coord_mat1, coord_mat2,
 #'
 #' @param coord_mat A matrix with the spatial coordinates of the data points, where each row represents a point and each column represents a coordinate dimension.
 #' @param feature_mat A matrix with the feature vectors of the data points, where each row represents a point and each column represents a feature dimension.
-#' @param nnk The number of nearest neighbors to consider for smoothing (default: 27).
+#' @param nnk The number of nearest neighbors to consider for smoothing (default: 27). Must be >= 4.
 #' @param s_sigma The spatial bandwidth in standard deviations (default: 2.5).
 #' @param f_sigma The normalized feature bandwidth in standard deviations (default: 0.7).
 #' @param stochastic A logical value indicating whether to make the resulting adjacency matrix doubly stochastic (default: FALSE).
@@ -485,28 +560,27 @@ cross_weighted_spatial_adjacency <- function(coord_mat1, coord_mat2,
 #' @export
 bilateral_smoother <- function(coord_mat, feature_mat, nnk=27, s_sigma=2.5, f_sigma=.7, stochastic=FALSE) {
   assert_that(nrow(feature_mat) == nrow(coord_mat))
+  # Minimum 4 neighbors required: bilateral filtering needs enough local samples for a non-degenerate weighted average; fewer produce unstable or zero weights
   assert_that(nnk >= 4)
 
   ## find the set of spatial nearest neighbors
   full_nn <- Rnanoflann::nn(data = coord_mat, points = coord_mat, k = min(nnk, nrow(coord_mat)), radius = s_sigma*2.5)
 
   # Convert to list format for compatibility
-  indices_list <- lapply(1:nrow(full_nn$indices), function(i) {
+  indices_list <- lapply(seq_len(nrow(full_nn$indices)), function(i) {
     idx <- full_nn$indices[i,]
     dst <- full_nn$distances[i,]
     valid <- dst <= s_sigma*2.5 & !is.na(idx)
     idx[valid]
   })
   
-  distances_list <- lapply(1:nrow(full_nn$distances), function(i) {
+  distances_list <- lapply(seq_len(nrow(full_nn$distances)), function(i) {
     dst <- full_nn$distances[i,]
     valid <- dst <= s_sigma*2.5 & !is.na(dst)
-    dst[valid]^2  # Square distances for compatibility
+    dst[valid]
   })
 
-  nels <- sum(sapply(indices_list, length))
-
-  triplet <- bilateral_weights(indices_list, lapply(distances_list, sqrt),
+  triplet <- bilateral_weights(indices_list, distances_list,
                               feature_mat, s_sigma, f_sigma)
 
   sm <- sparseMatrix(i=triplet[,1], j=triplet[,2], x=triplet[,3], dims=c(nrow(coord_mat), nrow(coord_mat)))
@@ -570,22 +644,20 @@ weighted_spatial_adjacency <- function(coord_mat, feature_mat, wsigma=.73, alpha
   alpha2 <- 1-alpha
 
   # Convert to list format for compatibility
-  indices_list <- lapply(1:nrow(full_nn$indices), function(i) {
+  indices_list <- lapply(seq_len(nrow(full_nn$indices)), function(i) {
     idx <- full_nn$indices[i,]
     dst <- full_nn$distances[i,]
     valid <- dst <= dthresh & !is.na(idx)
     idx[valid]
   })
   
-  distances_list <- lapply(1:nrow(full_nn$distances), function(i) {
+  distances_list <- lapply(seq_len(nrow(full_nn$distances)), function(i) {
     dst <- full_nn$distances[i,]
     valid <- dst <= dthresh & !is.na(dst)
-    dst[valid]^2  # Square distances for compatibility
+    dst[valid]
   })
 
-  nels <- sum(sapply(indices_list, length))
-
-  triplet <- fspatial_weights(indices_list, lapply(distances_list, sqrt),
+  triplet <- fspatial_weights(indices_list, distances_list,
                               feature_mat, sigma, wsigma, alpha,
                               weight_mode == "binary")
 
@@ -645,32 +717,30 @@ cross_spatial_adjacency <- function(coord_mat1, coord_mat2, dthresh=sigma*3,
   weight_mode <- match.arg(weight_mode)
 
   # Convert to list format for compatibility
-  indices_list <- lapply(1:nrow(full_nn$indices), function(i) {
+  indices_list <- lapply(seq_len(nrow(full_nn$indices)), function(i) {
     idx <- full_nn$indices[i,]
     dst <- full_nn$distances[i,]
     valid <- dst <= dthresh & !is.na(idx)
     idx[valid]
   })
   
-  distances_list <- lapply(1:nrow(full_nn$distances), function(i) {
+  distances_list <- lapply(seq_len(nrow(full_nn$distances)), function(i) {
     dst <- full_nn$distances[i,]
     valid <- dst <= dthresh & !is.na(dst)
-    dst[valid]^2  # Square distances for compatibility
+    dst[valid]
   })
 
-  nels <- sum(sapply(indices_list, length))
-
-  triplet <- spatial_weights(indices_list, lapply(distances_list, sqrt), sigma,
+  triplet <- spatial_weights(indices_list, distances_list, sigma,
                              weight_mode == "binary")
 
   sm <- sparseMatrix(i=triplet[,1], j=triplet[,2], x=triplet[,3],
                      dims=c(nrow(coord_mat1), nrow(coord_mat2)))
 
   if (normalized) {
-    D <- Diagonal(x=1/rowSums(sm))
-    sm <- D %*% sm
+    rs <- Matrix::rowSums(sm)
+    inv <- ifelse(rs > 0 & is.finite(rs), 1/rs, 0)
+    sm <- Diagonal(x=inv) %*% sm
   }
 
   sm
 }
-

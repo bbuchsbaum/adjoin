@@ -55,61 +55,101 @@ local_global_adjacency <- function(coord_mat, L = 5, K = 5, r,
   k_req <- max(1, min(n - 1, L + K + nnk_buffer))
 
   nn <- Rnanoflann::nn(data = coord_mat, points = coord_mat, k = k_req)
-  w_fun <- get_neighbor_fun(weight_mode, len = ncol(coord_mat), sigma = sigma)
+  idx_mat <- nn$indices
+  dist_mat <- nn$distances
 
-  keep_trip <- lapply(seq_len(n), function(i) {
-    idx <- nn$indices[i, ]
-    d   <- nn$distances[i, ]
+  max_edges <- n * (L + K + as.integer(include_diagonal))
+  ii <- integer(max_edges)
+  jj <- integer(max_edges)
+  xx <- numeric(max_edges)
+  used <- 0L
 
-    ok <- !is.na(idx) & idx > 0 & idx != i & !is.na(d)
+  for (i in seq_len(n)) {
+    idx <- idx_mat[i, ]
+    d <- dist_mat[i, ]
+
+    ok <- !is.na(idx) & idx > 0 & !is.na(d) & idx != i
     idx <- idx[ok]
-    d   <- d[ok]
+    d <- d[ok]
 
     loc_mask <- d <= r
-    loc_idx  <- idx[loc_mask]
-    loc_d    <- d[loc_mask]
-    if (length(loc_idx) > L) {
-      loc_idx <- loc_idx[seq_len(L)]
-      loc_d   <- loc_d[seq_len(L)]
+    n_loc <- min(sum(loc_mask), L)
+    n_far <- min(sum(!loc_mask), K)
+
+    if (!include_diagonal && (n_loc + n_far) == 0L) {
+      next
     }
 
-    far_idx  <- idx[!loc_mask]
-    far_d    <- d[!loc_mask]
-    if (length(far_idx) > K) {
-      far_idx <- far_idx[seq_len(K)]
-      far_d   <- far_d[seq_len(K)]
+    total_i <- n_loc + n_far + as.integer(include_diagonal)
+    if (total_i == 0L) {
+      next
     }
 
-    if (!include_diagonal && length(loc_idx) + length(far_idx) == 0) {
-      return(NULL)
+    sel_idx <- integer(total_i)
+    sel_w <- numeric(total_i)
+    pos <- 1L
+
+    if (include_diagonal) {
+      sel_idx[pos] <- i
+      sel_w[pos] <- 1
+      pos <- pos + 1L
     }
 
-    base_w <- w_fun(c(loc_d, far_d))
-    far_adj <- if (far_penalty == "lambda") {
-      rep(lambda, length(far_d))
-    } else {
-      exp(-(far_d - r) / tau)
+    if (n_loc > 0L) {
+      loc_idx <- idx[loc_mask]
+      loc_d <- d[loc_mask]
+      if (n_loc < length(loc_idx)) {
+        loc_idx <- loc_idx[seq_len(n_loc)]
+        loc_d <- loc_d[seq_len(n_loc)]
+      }
+
+      rng <- pos:(pos + n_loc - 1L)
+      sel_idx[rng] <- loc_idx
+      sel_w[rng] <- if (weight_mode == "binary") {
+        1
+      } else {
+        exp(-(loc_d^2) / (2 * sigma^2))
+      }
+      pos <- pos + n_loc
     }
 
-    w <- c(
-      base_w[seq_along(loc_d)],
-      base_w[seq_along(far_d) + length(loc_d)] * far_adj
-    )
+    if (n_far > 0L) {
+      far_idx <- idx[!loc_mask]
+      far_d <- d[!loc_mask]
+      if (n_far < length(far_idx)) {
+        far_idx <- far_idx[seq_len(n_far)]
+        far_d <- far_d[seq_len(n_far)]
+      }
 
-    data.frame(
-      i = i,
-      j = c(loc_idx, far_idx),
-      x = w,
-      stringsAsFactors = FALSE
-    )
-  })
+      far_w <- if (weight_mode == "binary") {
+        rep_len(1, n_far)
+      } else {
+        exp(-(far_d^2) / (2 * sigma^2))
+      }
+      far_adj <- if (far_penalty == "lambda") {
+        rep(lambda, n_far)
+      } else {
+        exp(-(far_d - r) / tau)
+      }
 
-  trip <- do.call(rbind, keep_trip)
-  if (is.null(trip)) {
+      rng <- pos:(pos + n_far - 1L)
+      sel_idx[rng] <- far_idx
+      sel_w[rng] <- far_w * far_adj
+    }
+
+    rng <- (used + 1L):(used + total_i)
+    ii[rng] <- i
+    jj[rng] <- sel_idx
+    xx[rng] <- sel_w
+    used <- used + total_i
+  }
+
+  if (used == 0L) {
     return(Matrix::sparseMatrix(i = integer(), j = integer(), x = numeric(), dims = c(n, n)))
   }
 
-  A <- Matrix::sparseMatrix(i = trip$i, j = trip$j, x = trip$x, dims = c(n, n))
+  keep <- seq_len(used)
+  A <- Matrix::sparseMatrix(i = ii[keep], j = jj[keep], x = xx[keep], dims = c(n, n))
 
   if (symmetric) {
     A <- (A + Matrix::t(A)) / 2

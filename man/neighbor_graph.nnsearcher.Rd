@@ -35,3 +35,11 @@ A neighbor_graph object representing the constructed graph.
 \description{
 Construct a neighbor graph from nearest neighbor search results.
 }
+\examples{
+\donttest{
+X <- matrix(rnorm(20), nrow=5)
+searcher <- nnsearcher(X)
+neighbor_graph(searcher, k=2, type="normal", transform="heat", sigma=1)
+}
+
+}

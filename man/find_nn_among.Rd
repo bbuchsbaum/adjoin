@@ -17,3 +17,10 @@ A nearest neighbors result object.
 \description{
 Find nearest neighbors among a subset
 }
+\examples{
+\donttest{
+X <- matrix(rnorm(20), nrow=5)
+nn <- nnsearcher(X)
+find_nn_among(nn, k=2, idx=1:3)
+}
+}

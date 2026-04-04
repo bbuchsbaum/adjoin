@@ -58,7 +58,6 @@ NULL
 #'   \item{info}{A list containing levels, factor_names, term_names, basis, map
 #'     (T matrix for effect basis), blocks}
 #' @examples
-#' # Simple 2x3 design with nominal factors
 #' factors <- list(
 #'   A = list(L=2, type="nominal"),
 #'   B = list(L=3, type="nominal")
@@ -66,7 +65,6 @@ NULL
 #' K1 <- design_kernel(factors)
 #' print(dim(K1$K))  # 6x6 cell-space kernel
 #' 
-#' # Ordinal factor with smoothness
 #' factors <- list(
 #'   dose = list(L=3, type="ordinal", l=1.0),
 #'   treat = list(L=2, type="nominal")
@@ -85,9 +83,6 @@ design_kernel <- function(factors,
                           normalize = c("none","unit_trace","unit_fro","max_diag"),
                           jitter = 1e-8) {
   
-  # helper: %||%
-  `%||%` <- function(a, b) if (is.null(a)) b else a
-  
   basis <- match.arg(basis)
   normalize <- match.arg(normalize)
 
@@ -98,21 +93,21 @@ design_kernel <- function(factors,
   if (is.null(fact_names) || any(!nzchar(fact_names))) stop("`factors` must be a NAMED list.")
   if (length(unique(fact_names)) != length(fact_names)) stop("Factor names must be unique.")
   
-  Ls <- sapply(factors, function(f) { 
-    if (is.null(f$L)) stop("Each factor needs L (levels).") 
+  Ls <- vapply(factors, function(f) {
+    if (is.null(f$L)) stop("Each factor needs L (levels).")
     if (!is.numeric(f$L) || f$L < 1) stop("Factor levels must be positive integers.")
     as.integer(f$L)
-  })
+  }, integer(1))
   
-  types <- sapply(factors, function(f) {
+  types <- vapply(factors, function(f) {
     type <- tolower(f$type %||% "nominal")
     if (!type %in% c("nominal", "ordinal", "circular")) {
       stop("Factor type must be 'nominal', 'ordinal', or 'circular'.")
     }
     type
-  })
+  }, character(1))
   
-  lscl <- sapply(seq_along(factors), function(i) {
+  lscl <- vapply(seq_along(factors), function(i) {
     if (types[i] %in% c("ordinal", "circular")) {
       l <- factors[[i]]$l %||% 1.0
       if (!is.numeric(l) || l <= 0) stop("Length scale l must be positive for ordinal/circular factors.")
@@ -120,7 +115,7 @@ design_kernel <- function(factors,
     } else {
       NA_real_
     }
-  })
+  }, numeric(1))
 
   # level index helpers
   make_levels <- function(L) 1:L
@@ -300,7 +295,6 @@ design_kernel <- function(factors,
 #'   \item{evals}{Eigenvalues (after jitter adjustment)}
 #'   \item{evecs}{Eigenvectors matrix}
 #' @examples
-#' # Simple 2x2 positive definite matrix
 #' K <- matrix(c(2, 1, 1, 2), 2, 2)
 #' result <- kernel_roots(K)
 #' print(dim(result$Khalf))  # 2x2
@@ -333,7 +327,6 @@ kernel_roots <- function(K, jitter=1e-10) {
 #'   alignment, 0 indicates orthogonality, and -1 indicates perfect negative 
 #'   alignment
 #' @examples
-#' # Compare two 3x3 matrices
 #' A <- matrix(c(2, 1, 0, 1, 2, 1, 0, 1, 2), 3, 3)
 #' B <- matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1), 3, 3)
 #' align_score <- kernel_alignment(A, B)
@@ -358,10 +351,8 @@ kernel_alignment <- function(A, B) {
 #' @param rhoAB Weight for A:B interaction (default 0)
 #' @return A list with kernel matrices and metadata (see \code{\link{design_kernel}})
 #' @examples
-#' # Simple additive model (no interaction)
 #' K1 <- example_kernel_5x5(rhoA=1, rhoB=1, rhoAB=0)
 #' 
-#' # Full factorial model
 #' K2 <- example_kernel_5x5(rhoA=1, rhoB=1, rhoAB=1)
 #' @export
 example_kernel_5x5 <- function(rho0=1e-8, rhoA=1, rhoB=1, rhoAB=0) {
@@ -381,7 +372,6 @@ example_kernel_5x5 <- function(rho0=1e-8, rhoA=1, rhoB=1, rhoAB=0) {
 #' @return Named list of contrast matrices, each of dimension L x (L-1) where
 #'   L is the number of levels for that factor. Each matrix has row sums of zero.
 #' @examples
-#' # Two factors with 3 and 4 levels
 #' contrasts <- sum_contrasts(c(A=3, B=4))
 #' print(dim(contrasts$A))  # 3 x 2
 #' print(dim(contrasts$B))  # 4 x 3
@@ -406,7 +396,6 @@ sum_contrasts <- function(Ls) {
 #'   L x (L-1) where L is the number of levels for that factor. Each matrix
 #'   has orthonormal columns.
 #' @examples
-#' # Two factors with 3 and 4 levels  
 #' contrasts <- helmert_contrasts(c(A=3, B=4))
 #' print(dim(contrasts$A))  # 3 x 2
 #' print(dim(contrasts$B))  # 4 x 3

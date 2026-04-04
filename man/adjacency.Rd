@@ -17,3 +17,10 @@ A sparse Matrix object representing the adjacency matrix.
 \description{
 Extract the adjacency matrix from graph objects such as neighbor_graph or nnsearch objects.
 }
+\examples{
+adj_matrix <- matrix(c(0,1,0,
+                       1,0,1,
+                       0,1,0), nrow=3, byrow=TRUE)
+ng <- neighbor_graph(adj_matrix)
+adjacency(ng)
+}

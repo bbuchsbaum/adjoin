@@ -11,7 +11,8 @@ spatial_laplacian(
   weight_mode = c("binary", "heat"),
   sigma = dthresh/2,
   normalized = TRUE,
-  stochastic = FALSE
+  stochastic = FALSE,
+  handle_isolates = c("self_loop", "keep_zero", "drop")
 )
 }
 \arguments{
@@ -28,6 +29,8 @@ spatial_laplacian(
 \item{normalized}{Logical, whether the adjacency matrix should be normalized (default is TRUE)}
 
 \item{stochastic}{Logical, whether the adjacency matrix should be stochastic (default is FALSE)}
+
+\item{handle_isolates}{How to treat zero-degree nodes when normalizing: "self_loop" (default), "keep_zero", or "drop".}
 }
 \value{
 A sparse symmetric matrix representing the computed spatial Laplacian
@@ -36,10 +39,8 @@ A sparse symmetric matrix representing the computed spatial Laplacian
 This function computes the spatial Laplacian matrix of a given coordinate matrix using specified parameters.
 }
 \examples{
-# Create an example coordinate matrix
 coord_mat <- matrix(c(1, 2, 3, 4, 5, 6), nrow = 3, ncol = 2)
 
-# Compute the spatial Laplacian matrix using the binary weight mode
 result <- spatial_laplacian(coord_mat, dthresh = 1.42, nnk = 27, weight_mode = "binary")
 
 }

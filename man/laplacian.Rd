@@ -17,3 +17,10 @@ The graph Laplacian matrix of the given weight matrix.
 \description{
 This function computes the graph Laplacian of a given weight matrix. The graph Laplacian is defined as the difference between the degree matrix and the adjacency matrix.
 }
+\examples{
+W <- Matrix::Matrix(c(0,1,0,
+              1,0,1,
+              0,1,0), nrow=3, byrow=TRUE, sparse=TRUE)
+ng <- neighbor_graph(W)
+laplacian(ng)
+}

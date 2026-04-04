@@ -27,7 +27,6 @@ where <A,B>_F = sum(A * B) is the Frobenius inner product and ||A||_F is the
 Frobenius norm. This provides a normalized measure of kernel similarity.
 }
 \examples{
-# Compare two 3x3 matrices
 A <- matrix(c(2, 1, 0, 1, 2, 1, 0, 1, 2), 3, 3)
 B <- matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1), 3, 3)
 align_score <- kernel_alignment(A, B)

@@ -25,3 +25,9 @@ A neighbor_graph object representing the within-class neighbors.
 \description{
 Compute the neighbors within the same class for a class_graph object.
 }
+\examples{
+labs <- factor(c("a","a","b","b"))
+cg <- class_graph(labs)
+X <- matrix(rnorm(8), ncol=2)
+homogeneous_neighbors(cg, X, k=1)
+}

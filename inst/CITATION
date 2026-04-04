@@ -1,0 +1,9 @@
+bibentry(
+  bibtype  = "Manual",
+  title    = "{adjoin}: Constructing Adjacency Matrices Based on Spatial and Feature Similarity",
+  author   = person("Bradley R.", "Buchsbaum",
+                    comment = c(ORCID = "0000-0002-1108-4866")),
+  year     = "2025",
+  note     = "R package version 0.1.0",
+  url      = "https://github.com/bbuchsbaum/adjoin"
+)

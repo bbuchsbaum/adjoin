@@ -4,19 +4,19 @@
 \alias{discriminating_distance}
 \title{Compute Discriminating Distance for Similarity Graph}
 \usage{
-discriminating_distance(X, k = length(labels)/2, sigma, labels)
+discriminating_distance(X, labels, k = NULL, sigma = NULL)
 }
 \arguments{
 \item{X}{A numeric matrix or data frame containing the data points.}
 
-\item{k}{An integer representing the number of nearest neighbors to consider.}
+\item{labels}{A factor or numeric vector containing the class labels for each data point.}
+
+\item{k}{An integer representing the number of nearest neighbors to consider. Default is half the number of samples.}
 
 \item{sigma}{A numeric value representing the scaling factor for the heat kernel. If not provided, it will be estimated.}
-
-\item{labels}{A factor or numeric vector containing the class labels for each data point.}
 }
 \value{
-A discriminating distance matrix in the form of a numeric matrix.
+A discriminating distance matrix in the form of a sparse matrix.
 }
 \description{
 This function computes a discriminating distance matrix for the similarity graph based on the class labels.
@@ -24,11 +24,11 @@ It adjusts the similarity graph by modifying the weights within and between clas
 tasks like classification and clustering.
 }
 \examples{
-\dontrun{
+\donttest{
 X <- matrix(rnorm(100*100), 100, 100)
 labels <- factor(rep(1:5, each=20))
 sigma <- 0.7
-D <- discriminating_distance(X, k=length(labels)/2, sigma, labels)
+D <- discriminating_distance(X, labels, k=length(labels)/2, sigma=sigma)
 }
 
 }

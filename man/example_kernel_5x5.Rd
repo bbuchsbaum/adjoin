@@ -23,9 +23,7 @@ Creates a simple 5x5 factorial design kernel with two nominal factors,
 useful for testing and demonstration purposes.
 }
 \examples{
-# Simple additive model (no interaction)
 K1 <- example_kernel_5x5(rhoA=1, rhoB=1, rhoAB=0)
 
-# Full factorial model
 K2 <- example_kernel_5x5(rhoA=1, rhoB=1, rhoAB=1)
 }

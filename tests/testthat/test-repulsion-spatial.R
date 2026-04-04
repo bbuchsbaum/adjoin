@@ -22,6 +22,22 @@ test_that("repulsion_graph creates valid repulsion matrix", {
   expect_true(all(adjacency(result)@x >= 0))  # Repulsion weights should be non-negative
 })
 
+test_that("repulsion_graph removes within-class edges and binarizes when requested", {
+  coords <- matrix(c(0,0, 1,0, 0,1, 1,1), ncol=2, byrow=TRUE)
+  W <- spatial_adjacency(coords, nnk=3, sigma=1, weight_mode="heat")
+  labels <- factor(c(1,1,2,2))
+  cg <- class_graph(labels)
+
+  binary <- repulsion_graph(W, cg, method="binary")
+  Wb <- adjacency(binary)
+  # Within-class edges should be zero
+  expect_equal(Wb[1,2], 0)
+  expect_equal(Wb[3,4], 0)
+  # Between-class edges should be 1 where there was a connection
+  nz <- which(Wb != 0, arr.ind = TRUE)
+  expect_true(all(Wb[nz] == 1))
+})
+
 test_that("spatial_constraints creates valid constraint matrix", {
   # Create coordinates
   coords <- matrix(c(0, 0, 1, 0, 0, 1, 1, 1), ncol = 2, byrow = TRUE)

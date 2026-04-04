@@ -20,7 +20,6 @@ A sparse Matrix object representing the adjacency matrix.
 Extract the adjacency matrix from a neighbor_graph object.
 }
 \examples{
-# Create example neighbor_graph
 adj_matrix <- Matrix::Matrix(c(0, 1, 1, 0, 1, 0, 1, 0, 0), 
                             nrow = 3, byrow = TRUE, sparse = TRUE)
 ng <- neighbor_graph(adj_matrix)

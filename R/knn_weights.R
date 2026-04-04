@@ -17,15 +17,17 @@ indices_to_sparse <- function(nn.index, hval, return_triplet=FALSE,
                               idim=nrow(nn.index),
                               jdim=nrow(nn.index)) {
 
+  i <- rep(seq_len(nrow(nn.index)), times = ncol(nn.index))
+  j <- as.vector(nn.index)
+  x <- as.vector(hval)
 
-  M <- do.call(rbind, lapply(1:nrow(nn.index), function(i) {
-    cbind(i, nn.index[i,], hval[i,])
-  }))
+  valid <- !is.na(j) & j > 0 & !is.na(x)
+  i <- i[valid]; j <- j[valid]; x <- x[valid]
 
   if (return_triplet) {
-    M
+    cbind(i=i, j=j, x=x)
   } else {
-    Matrix::sparseMatrix(i=M[,1], j=M[,2], x=M[,3], dims=c(idim, jdim))
+    Matrix::sparseMatrix(i=i, j=j, x=x, dims=c(idim, jdim))
   }
 }
 
@@ -48,6 +50,7 @@ indices_to_sparse <- function(nn.index, hval, return_triplet=FALSE,
 #'
 #' @export
 heat_kernel <- function(x, sigma=1) {
+  stopifnot(is.numeric(x), is.numeric(sigma), length(sigma) == 1, sigma > 0)
   exp((-x^2)/(2*sigma^2))
 }
 
@@ -56,8 +59,13 @@ heat_kernel <- function(x, sigma=1) {
 #'
 #' @param x the distances
 #' @param sigma the bandwidth
+#' @return Numeric vector/matrix of inverse heat kernel values.
+#' @examples
+#' inverse_heat_kernel(c(1, 2), sigma = 1)
 #' @export
 inverse_heat_kernel <- function(x, sigma=1) {
+  stopifnot(is.numeric(x), is.numeric(sigma), length(sigma) == 1, sigma > 0)
+  x[x == 0] <- .Machine$double.eps
   #exp((-x^2)/(2*sigma^2))
   exp((-2*sigma^2)/x)
 }
@@ -70,8 +78,12 @@ inverse_heat_kernel <- function(x, sigma=1) {
 #' @param x the distances
 #' @param sigma the bandwidth
 #' @param len the normalization factor (e.g. the length of the feature vectors)
+#' @return Numeric vector/matrix of normalized heat kernel values.
+#' @examples
+#' normalized_heat_kernel(c(1,2), sigma = .5, len = 4)
 #' @export
 normalized_heat_kernel <- function(x, sigma=.68, len) {
+  stopifnot(is.numeric(x), is.numeric(sigma), length(sigma) == 1, sigma > 0, is.numeric(len), len > 0)
   norm_dist <- (x^2)/(2*len)
   exp(-norm_dist/(2*sigma^2))
 }
@@ -85,6 +97,7 @@ correlation_kernel <- function(x, len) {
 
 #' @keywords internal
 cosine_kernel <- function(x, sigma=1) {
+  stopifnot(is.numeric(x))
   1 - (x^2)/2
 }
 
@@ -103,6 +116,57 @@ get_neighbor_fun <- function(weight_mode = c("heat", "binary", "normalized",
     cosine      = cosine_kernel,
     correlation = function(x) correlation_kernel(x, len)
   )
+}
+
+
+#' @keywords internal
+knn_search_euclidean <- function(data, points = data, k,
+                                 backend = c("nanoflann", "hnsw"),
+                                 drop_first = FALSE,
+                                 M = 16, ef = 200, ...) {
+  backend <- match.arg(backend)
+  data <- as.matrix(data)
+  points <- as.matrix(points)
+  k_search <- min(k + as.integer(drop_first), nrow(data))
+
+  if (backend == "hnsw") {
+    if (!requireNamespace("RcppHNSW", quietly = TRUE)) {
+      stop("backend='hnsw' requires the RcppHNSW package.", call. = FALSE)
+    }
+
+    ann <- RcppHNSW::hnsw_build(data, distance = "l2", M = M, ef = ef)
+    res <- RcppHNSW::hnsw_search(points, ann, k = k_search)
+    idx <- res$idx
+    dst <- sqrt(res$dist)
+  } else {
+    res <- Rnanoflann::nn(data = data, points = points, k = k_search, ...)
+    idx <- res$indices
+    dst <- res$distances
+  }
+
+  if (min(idx, na.rm = TRUE) == 0L) idx <- idx + 1L
+
+  if (drop_first) {
+    idx <- idx[, -1, drop = FALSE]
+    dst <- dst[, -1, drop = FALSE]
+  }
+
+  list(indices = idx, distances = dst)
+}
+
+
+#' @keywords internal
+symmetrize_knn_sparse <- function(W, type = c("normal", "mutual", "asym")) {
+  type <- match.arg(type)
+  Wt <- Matrix::t(W)
+
+  out <- switch(type,
+    asym = W,
+    normal = (W + Wt + abs(W - Wt)) / 2,
+    mutual = (W + Wt - abs(W - Wt)) / 2
+  )
+
+  Matrix::drop0(out)
 }
 
 
@@ -129,16 +193,13 @@ get_neighbor_fun <- function(weight_mode = c("heat", "binary", "normalized",
 #'
 #' @export
 #' @examples
-#' # Sample data
 #' des <- data.frame(
 #'   var1 = factor(c("a", "b", "a", "b", "a")),
 #'   var2 = factor(c("c", "c", "d", "d", "d"))
 #' )
 #'
-#' # Compute similarity matrix using Jaccard method
 #' sim_jaccard <- factor_sim(des, method = "Jaccard")
 #'
-#' # Compute similarity matrix using Dice method
 #' sim_dice <- factor_sim(des, method = "Dice")
 factor_sim <- function(des,
                        method = c("Jaccard", "Rogers", "simple matching", "Dice")) {
@@ -146,6 +207,7 @@ factor_sim <- function(des,
   method <- match.arg(method)
   mm <- lapply(names(des), function(nm) model.matrix(~ . - 1, data = des[nm]))
   mat <- do.call(cbind, mm)
+  if (!requireNamespace("proxy", quietly = TRUE)) stop("Package 'proxy' is required. Install with install.packages('proxy')")
   proxy::simil(mat, method = method)
 }
 
@@ -160,21 +222,18 @@ factor_sim <- function(des,
 #'
 #' @export
 #' @examples
-#' # Sample data
 #' des <- data.frame(
 #'   var1 = factor(c("a", "b", "a", "b", "a")),
 #'   var2 = factor(c("c", "c", "d", "d", "d"))
 #' )
 #'
-#' # Compute similarity matrix with default equal weights
 #' sim_default_weights <- weighted_factor_sim(des)
 #'
-#' # Compute similarity matrix with custom weights
 #' sim_custom_weights <- weighted_factor_sim(des, wts = c(0.7, 0.3))
 weighted_factor_sim <- function(des, wts = rep(1, ncol(des)) / ncol(des)) {
   wts <- wts / sum(wts)
   mats <- Map(function(nm, wt) {
-    label_matrix(des[[nm]], des[[nm]]) * wt
+    diagonal_label_matrix_na(des[[nm]], des[[nm]]) * wt
   }, names(des), wts)
   Reduce(`+`, mats)
 }
@@ -193,13 +252,10 @@ weighted_factor_sim <- function(des, wts = rep(1, ncol(des)) / ncol(des)) {
 #' @export
 #'
 #' @examples
-#' # Sample data
 #' X <- matrix(rnorm(1000), nrow=100, ncol=10)
 #'
-#' # Estimate sigma with default parameters
 #' sigma_default <- estimate_sigma(X)
 #'
-#' # Estimate sigma with custom quantile and number of samples
 #' sigma_custom <- estimate_sigma(X, prop=0.3, nsamples=300)
 estimate_sigma <- function(X, prop = .25, nsamples = 500, normalized = FALSE) {
   if (nrow(X) > nsamples) {
@@ -233,18 +289,23 @@ estimate_sigma <- function(X, prop = .25, nsamples = 500, normalized = FALSE) {
 #' @param labels A factor vector representing the class of the categories when weight_mode is 'supervised' with nrow(labels) equal to nrow(X).
 #' @param ... Additional parameters passed to the internal functions.
 #'
+#' @details
+#' Distances passed to `weight_mode` kernels are Euclidean (square root already applied to
+#' Rnanoflann outputs). Custom kernels should be written accordingly; if a kernel expects
+#' squared distances, wrap it to square its input.
+#'
 #' @return An adjacency graph based on the specified neighbor and weight modes.
+#' @seealso \code{\link{graph_weights_fast}} for additional backends and self-tuning options
 #' @export
 #'
 #' @examples
-#' # Sample data
 #' X <- matrix(rnorm(100*100), 100, 100)
 #' sm <- graph_weights(X, neighbor_mode="knn", weight_mode="normalized", k=3)
 #'
 #' labels <- factor(rep(letters[1:4], 5))
 #' sm3 <- graph_weights(X, neighbor_mode="knn", k=3, labels=labels, weight_mode="cosine")
 #' sm4 <- graph_weights(X, neighbor_mode="knn", k=100, labels=labels, weight_mode="cosine")
-graph_weights <- function(X, k=5, neighbor_mode=c("knn", "epsilon"),
+graph_weights <- function(X, k=5, neighbor_mode=c("knn"),
                           weight_mode=c("heat", "normalized", "binary", "euclidean",
                                         "cosine", "correlation"),
                           type=c("normal", "mutual", "asym"),
@@ -253,11 +314,23 @@ graph_weights <- function(X, k=5, neighbor_mode=c("knn", "epsilon"),
   neighbor_mode = match.arg(neighbor_mode)
   weight_mode = match.arg(weight_mode)
   type <- match.arg(type)
+  if (!is.null(labels)) warning("'labels' parameter is not yet implemented and has no effect")
+  X <- as.matrix(X)
+  p <- ncol(X)
 
   if (weight_mode == "normalized" || weight_mode == "correlation") {
-    X <- t(scale(t(X), center=TRUE, scale=TRUE))
+    mu <- rowMeans(X)
+    X <- X - mu
+    denom <- max(p - 1L, 1L)
+    s <- sqrt(rowSums(X * X) / denom)
+    s[!is.finite(s) | s == 0] <- 1
+    X <- X / s
+    X[!is.finite(X)] <- 0
   } else if (weight_mode == "cosine") {
-    X <- t(apply(X, 1, function(x) x/sqrt(sum(x^2))))
+    nrm <- sqrt(rowSums(X * X))
+    nrm[!is.finite(nrm) | nrm == 0] <- 1
+    X <- X / nrm
+    X[!is.finite(X)] <- 0
   }
 
   if ((is.null(sigma)) && (weight_mode %in% c("heat", "normalized"))) {
@@ -271,11 +344,7 @@ graph_weights <- function(X, k=5, neighbor_mode=c("knn", "epsilon"),
 
   wfun <- get_neighbor_fun(weight_mode, len=ncol(X), sigma=sigma)
 
-  if (neighbor_mode == "knn") {
-    W <- weighted_knn(X, k, FUN=wfun, type=type,...)
-  } else if (neighbor_mode == "epsilon") {
-    stop("epsilon not implemented")
-  }
+  W <- weighted_knn(X, k, FUN=wfun, type=type,...)
 
   neighbor_graph(W, params=list(k=k, neighbor_mode=neighbor_mode,
                                      weight_mode=weight_mode,
@@ -314,9 +383,12 @@ threshold_adjacency <- function(A, k = 5,
                                 ncores = 1) {
   assertthat::assert_that(k > 0, k <= nrow(A))
   type <- match.arg(type)
+  stopifnot(is.numeric(ncores), length(ncores) == 1, ncores >= 1)
+  ncores <- as.integer(ncores)
+  if (.Platform$OS.type == "windows") ncores <- 1L
 
   rows <- parallel::mclapply(seq_len(nrow(A)), mc.cores = ncores, function(i) {
-    ord <- order(A[i, ], decreasing = TRUE)[seq_len(k)]
+    ord <- utils::head(order(A[i, ], decreasing = TRUE), k)
     cbind(i = i, j = ord, x = A[i, ord])
   })
   rows <- do.call(rbind, rows)
@@ -340,24 +412,38 @@ threshold_adjacency <- function(A, k = 5,
 #' @param type A character string indicating the type of adjacency to compute. One of "normal", "mutual", or "asym" (default: "normal").
 #' @param as A character string indicating the format of the output. One of "igraph", "sparse", or "index_sim" (default: "igraph").
 #'
+#' @details
+#' Distances passed to `FUN` are Euclidean distances. With `backend="hnsw"`,
+#' squared L2 distances from `RcppHNSW` are converted back to Euclidean
+#' distances before weighting.
+#'
+#' @param backend Nearest-neighbor backend. `"nanoflann"` uses exact Euclidean
+#'   search; `"hnsw"` uses approximate search via `RcppHNSW`.
+#' @param M,ef HNSW tuning parameters used only when `backend="hnsw"`.
+#'
 #' @return If 'as' is "index_sim", a two-column matrix where the first column contains the indices of nearest neighbors and the second column contains the corresponding kernel values.
 #'         If 'as' is "igraph", an igraph object representing the cross adjacency graph.
 #'         If 'as' is "sparse", a sparse adjacency matrix.
 #' @export
+#' @examples
+#' X <- matrix(rnorm(6), ncol=2)
+#' Y <- matrix(rnorm(8), ncol=2)
+#' cross_adjacency(X, Y, k=1, as="sparse")
 cross_adjacency <- function(X, Y, k = 5, FUN = heat_kernel,
                             type = c("normal", "mutual", "asym"),
-                            as   = c("igraph", "sparse", "index_sim")) {
+                            as   = c("igraph", "sparse", "index_sim"),
+                            backend = c("nanoflann", "hnsw"),
+                            M = 16, ef = 200) {
 
   stopifnot(k > 0, k <= nrow(X))
+  stopifnot(ncol(X) == ncol(Y))
   type <- match.arg(type)
   as   <- match.arg(as)
+  backend <- match.arg(backend)
 
-  nn_result <- Rnanoflann::nn(data = as.matrix(X), points = as.matrix(Y), k = k + 1L)
-  idx <- nn_result$indices[, -1, drop = FALSE]
-  dst <- nn_result$distances[, -1, drop = FALSE]
-
-  ## 0‑based safety
-  if (min(idx) == 0L) idx <- idx + 1L
+  nn_result <- knn_search_euclidean(X, Y, k = k, backend = backend, M = M, ef = ef)
+  idx <- nn_result$indices
+  dst <- nn_result$distances
 
   sim <- FUN(dst)
 
@@ -368,14 +454,26 @@ cross_adjacency <- function(X, Y, k = 5, FUN = heat_kernel,
                          idim = nrow(Y),
                          jdim = nrow(X))
 
-  g <- switch(type,
-    normal = igraph::graph_from_adjacency_matrix(W, weighted = TRUE, mode = "max"),
-    mutual = igraph::graph_from_adjacency_matrix(W, weighted = TRUE, mode = "min"),
-    asym   = igraph::graph_from_adjacency_matrix(W, weighted = TRUE,
-                                                 mode = "directed")
-  )
+  # For non-square matrices (cross-adjacency), return sparse matrix directly
+  if (nrow(Y) != nrow(X)) {
+    if (as == "sparse") {
+      return(W)
+    } else if (as == "igraph") {
+      stop("igraph output not supported for non-square cross-adjacency (nrow(X) != nrow(Y)). Use as='sparse' instead.")
+    }
+  }
 
-  if (as == "sparse") igraph::as_adjacency_matrix(g, attr = "weight") else g
+  W <- symmetrize_knn_sparse(W, type)
+
+  if (as == "sparse") {
+    W
+  } else {
+    igraph::graph_from_adjacency_matrix(
+      W,
+      weighted = TRUE,
+      mode = if (type == "asym") "directed" else "undirected"
+    )
+  }
 }
 
 #' Weighted k-Nearest Neighbors
@@ -391,6 +489,15 @@ cross_adjacency <- function(X, Y, k = 5, FUN = heat_kernel,
 #' @param as A character string specifying the format of the output. One of "igraph" or "sparse" (default: "igraph").
 #' @param ... Additional arguments passed to the nearest neighbor search function (Rnanoflann::nn).
 #'
+#' @details
+#' Distances passed to `FUN` are Euclidean distances. With `backend="hnsw"`,
+#' squared L2 distances from `RcppHNSW` are converted back to Euclidean
+#' distances before weighting.
+#'
+#' @param backend Nearest-neighbor backend. `"nanoflann"` uses exact Euclidean
+#'   search; `"hnsw"` uses approximate search via `RcppHNSW`.
+#' @param M,ef HNSW tuning parameters used only when `backend="hnsw"`.
+#'
 #' @return If 'as' is "igraph", an igraph object representing the weighted k-nearest neighbors graph.
 #'         If 'as' is "sparse", a sparse adjacency matrix.
 #'
@@ -405,29 +512,39 @@ cross_adjacency <- function(X, Y, k = 5, FUN = heat_kernel,
 #' @export
 weighted_knn <- function(X, k = 5, FUN = heat_kernel,
                          type = c("normal", "mutual", "asym"),
-                         as   = c("igraph", "sparse"), ...) {
+                         as   = c("igraph", "sparse"),
+                         backend = c("nanoflann", "hnsw"),
+                         M = 16, ef = 200, ...) {
 
   stopifnot(k > 0, k <= nrow(X))
   type <- match.arg(type)
   as   <- match.arg(as)
+  backend <- match.arg(backend)
 
-  nn_result <- Rnanoflann::nn(data = X, points = X, k = min(k + 1L, nrow(X)), ...)
-  idx <- nn_result$indices[, -1, drop = FALSE]
-  dst <- nn_result$distances[, -1, drop = FALSE]
-
-  ## 0‑based safety ----------------------------------------------------------
-  if (min(idx) == 0L) idx <- idx + 1L
+  nn_result <- knn_search_euclidean(
+    X, X,
+    k = k,
+    backend = backend,
+    drop_first = TRUE,
+    M = M,
+    ef = ef,
+    ...
+  )
+  idx <- nn_result$indices
+  dst <- nn_result$distances
 
   W <- indices_to_sparse(idx, FUN(dst), idim = nrow(X), jdim = nrow(X))
+  W <- symmetrize_knn_sparse(W, type)
 
-  g <- switch(type,
-    normal = igraph::graph_from_adjacency_matrix(W, weighted = TRUE, mode = "max"),
-    mutual = igraph::graph_from_adjacency_matrix(W, weighted = TRUE, mode = "min"),
-    asym   = igraph::graph_from_adjacency_matrix(W, weighted = TRUE,
-                                                 mode = "directed")
-  )
-
-  if (as == "sparse") igraph::as_adjacency_matrix(g, attr = "weight") else g
+  if (as == "sparse") {
+    W
+  } else {
+    igraph::graph_from_adjacency_matrix(
+      W,
+      weighted = TRUE,
+      mode = if (type == "asym") "directed" else "undirected"
+    )
+  }
 }
 
 #' Apply a Function to Non-Zero Elements in a Sparse Matrix
@@ -494,7 +611,7 @@ psparse <- function(M, FUN, return_triplet = FALSE) {
 
   # Add back the diagonal and unmatched elements
   processed_positions <- c(which(tri[,1] < tri[,2])[valid_matches], valid_match_indices)
-  unprocessed_mask <- !(1:nrow(tri) %in% processed_positions)
+  unprocessed_mask <- !(seq_len(nrow(tri)) %in% processed_positions)
   diag_and_unmatched <- tri[unprocessed_mask, , drop = FALSE]
   
   if (nrow(diag_and_unmatched) > 0) {

@@ -28,10 +28,8 @@ This function computes the temporal adjacency matrix of a given time series usin
 sigma, and window size.
 }
 \examples{
-# Create an example time series
 time <- 1:10
 
-# Compute the temporal adjacency matrix using the heat weight mode
 result <- temporal_adjacency(time, weight_mode = "heat", sigma = 1, window = 2)
 
 }

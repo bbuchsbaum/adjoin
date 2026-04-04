@@ -17,3 +17,7 @@ A similarity matrix or object with distances converted to similarities.
 \description{
 Convert distance values to similarity values using various transformation methods.
 }
+\examples{
+d <- Matrix::Matrix(as.matrix(dist(matrix(rnorm(6), ncol=2))), sparse=TRUE)
+dist_to_sim(d, method="heat", sigma=1)
+}

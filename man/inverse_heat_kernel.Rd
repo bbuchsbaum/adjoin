@@ -11,6 +11,12 @@ inverse_heat_kernel(x, sigma = 1)
 
 \item{sigma}{the bandwidth}
 }
+\value{
+Numeric vector/matrix of inverse heat kernel values.
+}
 \description{
 inverse_heat_kernel
+}
+\examples{
+inverse_heat_kernel(c(1, 2), sigma = 1)
 }

@@ -18,7 +18,6 @@ The number of vertices in the neighbor_graph object.
 Retrieve the number of vertices in a neighbor_graph object.
 }
 \examples{
-# Create a small example graph
 adj_matrix <- matrix(c(0, 1, 1, 0, 1, 0, 1, 0, 0), nrow = 3, byrow = TRUE)
 ng <- neighbor_graph(adj_matrix)
 nvertices(ng) # Should return 3

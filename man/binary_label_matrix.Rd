@@ -2,7 +2,7 @@
 % Please edit documentation in R/label_sim.R
 \name{binary_label_matrix}
 \alias{binary_label_matrix}
-\title{Create a Binary Label Adjacency Matrix}
+\title{Create a Binary Label Adjacency Matrix (All Pairs)}
 \usage{
 binary_label_matrix(a, b = NULL, type = c("s", "d"))
 }
@@ -14,14 +14,27 @@ binary_label_matrix(a, b = NULL, type = c("s", "d"))
 \item{type}{A character specifying the type of adjacency matrix to create, either "s" for same labels or "d" for different labels (default: "s").}
 }
 \value{
-A binary adjacency matrix with edges determined by the label relationships between `a` and `b`.
+A sparse binary adjacency matrix of dimensions (length(a) x length(b)) with 1s
+  where the label relationship holds.
 }
 \description{
-Constructs a binary adjacency matrix based on two sets of labels `a` and `b`, creating edges when `a` and `b` have the same or different labels, depending on the `type` parameter.
+Constructs a binary adjacency matrix based on two sets of labels `a` and `b`,
+creating edges for ALL pairs (i, j) where labels match (type="s") or differ (type="d").
+This computes the full cross-product comparison between the two label vectors.
+}
+\details{
+For type="s", the result is a block-diagonal structure when a==b, with blocks
+corresponding to each class. For type="d", the result is the complement.
+
+This function uses efficient sparse matrix multiplication via indicator matrices,
+avoiding O(n^2) memory usage from expanding all pairs.
 }
 \examples{
 data(iris)
 a <- iris[,5]
 bl <- binary_label_matrix(a, type="d")
 
+}
+\seealso{
+\code{\link{diagonal_label_matrix}} for element-wise (positional) comparison
 }

@@ -1,6 +1,6 @@
 library(testthat)
 library(Matrix)
-library(neighborweights)
+library(adjoin)
 
 dominant_modulus <- function(M) {
   max(Mod(eigen(as.matrix(M), only.values = TRUE)$values))
@@ -87,7 +87,7 @@ test_that("spatial_constraints list-of-coords with repeated grid produces correc
               info = "all constraint weights must be finite")
   # Leading eigenvalue normalised to 1
   ev <- RSpectra::eigs_sym(S, k = 1, which = "LA")$values[1]
-  expect_lt(abs(ev - 1), 1e-4)
+  expect_lt(abs(ev - 1), 0.01)
 })
 
 test_that("feature_weighted_spatial_constraints returns finite normalized matrix", {

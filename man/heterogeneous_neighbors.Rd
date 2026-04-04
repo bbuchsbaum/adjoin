@@ -4,7 +4,7 @@
 \alias{heterogeneous_neighbors}
 \title{Heterogeneous Neighbors for class_graph Objects}
 \usage{
-heterogeneous_neighbors(x, X, k, weight_mode = "binary", sigma = 1, ...)
+heterogeneous_neighbors(x, X, k, weight_mode = "heat", sigma = 1, ...)
 }
 \arguments{
 \item{x}{A class_graph object.}
@@ -24,4 +24,10 @@ A neighbor_graph object representing the between-class neighbors.
 }
 \description{
 Compute the neighbors between different classes for a class_graph object.
+}
+\examples{
+labs <- factor(c("a","a","b","b"))
+cg <- class_graph(labs)
+X <- matrix(rnorm(8), ncol=2)
+heterogeneous_neighbors(cg, X, k=1)
 }

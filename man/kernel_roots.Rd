@@ -30,7 +30,6 @@ The jitter parameter adds a small ridge to eigenvalues to prevent numerical
 issues with near-zero eigenvalues.
 }
 \examples{
-# Simple 2x2 positive definite matrix
 K <- matrix(c(2, 1, 1, 2), 2, 2)
 result <- kernel_roots(K)
 print(dim(result$Khalf))  # 2x2

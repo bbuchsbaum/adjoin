@@ -20,12 +20,9 @@ A list of vertex indices representing the neighbors of the specified vertices. T
 This function retrieves the indices of neighbors of one or more vertices in a given graph or graph-like object.
 }
 \examples{
-\dontrun{
-# Create an example graph  
-library(igraph)
-g <- neighbor_graph(make_ring(5))
+\donttest{
+g <- neighbor_graph(igraph::make_ring(5))
 
-# Get neighbors of vertex 1
-n <- neighbors(g, 1)
+n <- adjoin::neighbors(g, 1)
 }
 }

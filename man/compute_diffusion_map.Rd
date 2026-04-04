@@ -24,16 +24,12 @@ based on the leading eigenvectors of the normalized transition matrix.
 }
 \examples{
 library(Matrix)
-# Create a simple 4x4 adjacency matrix (path graph)
 A <- sparseMatrix(i = c(1, 2, 3), j = c(2, 3, 4), x = c(1, 1, 1), dims = c(4, 4))
 A <- A + t(A)  # Make symmetric
 
-# Compute diffusion map with 2 coordinates
 result <- compute_diffusion_map(A, t = 1.0, k = 2)
 
-# View the embedding coordinates
 print(result$embedding)
 
-# Check diffusion distances
 print(result$distances[1, ])  # distances from node 1
 }

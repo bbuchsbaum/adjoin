@@ -18,15 +18,12 @@ A weighted similarity matrix computed for the factors in the data frame.
 Calculate the weighted similarity matrix for a set of factors in a data frame.
 }
 \examples{
-# Sample data
 des <- data.frame(
   var1 = factor(c("a", "b", "a", "b", "a")),
   var2 = factor(c("c", "c", "d", "d", "d"))
 )
 
-# Compute similarity matrix with default equal weights
 sim_default_weights <- weighted_factor_sim(des)
 
-# Compute similarity matrix with custom weights
 sim_custom_weights <- weighted_factor_sim(des, wts = c(0.7, 0.3))
 }

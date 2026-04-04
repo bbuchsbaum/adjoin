@@ -13,7 +13,7 @@ class_graph(labels, sparse = TRUE)
 }
 \value{
 A class_graph object, which is a list containing the following components:
-\itemize{
+\describe{
   \item{adjacency}{A matrix representing the adjacency of the graph.}
   \item{params}{A list of parameters used in the construction of the graph.}
   \item{labels}{A vector of class labels.}

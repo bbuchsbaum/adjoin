@@ -17,3 +17,9 @@ A matrix or data frame representing the means of each class, the structure of wh
 \description{
 A generic function to compute the mean of each class.
 }
+\examples{
+labs <- factor(c("a","a","b"))
+cg <- class_graph(labs)
+class_means(cg, matrix(1:9, nrow=3))
+
+}

@@ -21,10 +21,8 @@ This function computes the temporal autocorrelation of a given matrix using a sp
 optionally inverts the correlation matrix.
 }
 \examples{
-# Create an example matrix
 X <- matrix(rnorm(50), nrow = 10, ncol = 5)
 
-# Compute the temporal autocorrelation
 result <- temporal_autocor(X, window = 2)
 
 }

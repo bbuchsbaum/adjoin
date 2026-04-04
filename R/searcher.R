@@ -1,43 +1,58 @@
 #' Nearest Neighbor Searcher
 #'
-#' Create a nearest neighbor searcher object using HNSW (Hierarchical Navigable 
-#' Small World) algorithm for efficient approximate nearest neighbor search.
+#' Create a nearest neighbor searcher object for efficient nearest neighbor search.
+#' Uses Rnanoflann (exact Euclidean search) by default, or RcppHNSW (approximate search
+#' with cosine/inner-product support) when those distance metrics are requested.
 #'
 #' @param X A numeric matrix where each row represents a data point.
 #' @param labels A vector of labels corresponding to each row in X. Defaults to row indices.
 #' @param ... Additional arguments (currently unused).
 #' @param distance The distance metric to use. One of "l2", "euclidean", "cosine", or "ip".
-#' @param M The maximum number of connections for every new element during construction.
-#' @param ef The size of the dynamic candidate list.
+#'   Note: "cosine" and "ip" require the RcppHNSW package.
+#' @param M The maximum number of connections for HNSW (only used with cosine/ip).
+#' @param ef The size of the dynamic candidate list for HNSW (only used with cosine/ip).
 #'
-#' @return An object of class "nnsearcher" containing the data matrix, labels, 
-#'   HNSW index, and search parameters.
+#' @return An object of class "nnsearcher" containing the data matrix, labels,
+#'   search index, and search parameters.
 #'
 #' @examples
 #' \donttest{
-#' # Create example data
 #' X <- matrix(rnorm(100), nrow=10, ncol=10)
 #' searcher <- nnsearcher(X)
 #' }
 #'
-#' @importFrom RcppHNSW hnsw_build hnsw_search
 #' @importFrom chk chk_matrix chk_numeric
 #' @export
 nnsearcher <- function(X, labels=1:nrow(X), ...,
                        distance=c("l2", "euclidean", "cosine", "ip"), M=16, ef=200) {
   distance <- match.arg(distance)
   X <- as.matrix(X)
-  
+
   # Validation checks
   stopifnot(
-    "Number of labels must equal the number of rows in the data matrix 'X'" = 
+    "Number of labels must equal the number of rows in the data matrix 'X'" =
       length(labels) == nrow(X)
   )
   if (anyNA(labels)) {
     stop("NA values are not permitted in 'labels'.", call. = FALSE)
   }
-  
-  ann <- hnsw_build(X, distance, ef=ef, M=M)
+
+  # Determine backend: use Rnanoflann for Euclidean, RcppHNSW for cosine/ip
+  use_hnsw <- distance %in% c("cosine", "ip")
+
+
+  if (use_hnsw) {
+    if (!requireNamespace("RcppHNSW", quietly = TRUE)) {
+      stop("RcppHNSW package is required for '", distance, "' distance metric. ",
+           "Install it with: install.packages('RcppHNSW')", call. = FALSE)
+    }
+    ann <- RcppHNSW::hnsw_build(X, distance, ef=ef, M=M)
+    backend <- "hnsw"
+  } else {
+    # Rnanoflann uses Euclidean distance (stores data for queries)
+    ann <- NULL
+    backend <- "nanoflann"
+  }
 
   structure(list(
     X=X,
@@ -45,7 +60,8 @@ nnsearcher <- function(X, labels=1:nrow(X), ...,
     ann=ann,
     distance=distance,
     ef=ef,
-    M=M),
+    M=M,
+    backend=backend),
     class="nnsearcher")
 }
 
@@ -58,6 +74,11 @@ nnsearcher <- function(X, labels=1:nrow(X), ...,
 #'
 #' @return An object of class "nn_search" with standardized field names.
 #'
+#' @examples
+#' res <- list(idx = matrix(c(1L,2L), nrow=1),
+#'             dist = matrix(c(0.1,0.2), nrow=1))
+#' dummy <- nnsearcher(matrix(rnorm(4), nrow=2))
+#' search_result(dummy, res)
 #' @method search_result nnsearcher
 #' @export
 search_result.nnsearcher <- function(x, result) {
@@ -84,12 +105,18 @@ search_result.nnsearcher <- function(x, result) {
 #'
 #' @return The modified nn_search object with distances converted to similarities.
 #'
+#' @examples
+#' res <- list(indices = matrix(c(1L,2L), nrow=1),
+#'             distances = matrix(c(0.5, 1.0), nrow=1))
+#' class(res) <- "nn_search"; attr(res,"len") <- 2; attr(res,"metric") <- "l2"
+#' dist_to_sim(res, method="heat", sigma=1)
 #' @method dist_to_sim nn_search
 #' @export
 dist_to_sim.nn_search <- function(x, method = c("heat", "binary", "normalized", "cosine", "correlation"), sigma=1, ...) {
   method <- match.arg(method)
-  fun <- get_neighbor_fun(method, x$len, x$sigma)
-  x$dist <- fun(x$dist)
+  len <- attr(x, "len")
+  fun <- get_neighbor_fun(method, len, sigma)
+  x$distances <- fun(x$distances)
   x
 }
 
@@ -106,6 +133,9 @@ dist_to_sim.nn_search <- function(x, method = c("heat", "binary", "normalized", 
 #'
 #' @return The Matrix object with distances converted to similarities.
 #'
+#' @examples
+#' m <- Matrix::Matrix(c(0,1,2,0), nrow=2, sparse=TRUE)
+#' dist_to_sim(m, method="heat", sigma=1)
 #' @method dist_to_sim Matrix
 #' @export
 dist_to_sim.Matrix <- function(x, method = c("heat", "binary", "normalized", "cosine", "correlation"), sigma=1, len=1, ...) {
@@ -130,10 +160,16 @@ dist_to_sim.Matrix <- function(x, method = c("heat", "binary", "normalized", "co
 #'
 #' @return A sparse Matrix representing the adjacency matrix.
 #'
-#' @method adjacency nnsearch
+#' @examples
+#' res <- list(indices = matrix(c(2L,1L), nrow=2),
+#'             distances = matrix(c(0.1,0.2), nrow=2))
+#' class(res) <- "nn_search"
+#' attr(res,"len") <- 2; attr(res,"metric") <- "l2"
+#' adjacency(res, idim=2, jdim=2)
+#' @method adjacency nn_search
 #' @export
-adjacency.nnsearch <- function(x, idim=nrow(x$idx), jdim=max(x$idx), return_triplet=FALSE, ...) {
-  indices_to_sparse(as.matrix(x$idx), as.matrix(x$dist), return_triplet=FALSE, idim=idim, jdim=jdim)
+adjacency.nn_search <- function(x, idim=nrow(x$indices), jdim=max(x$indices), return_triplet=FALSE, ...) {
+  indices_to_sparse(as.matrix(x$indices), as.matrix(x$distances), return_triplet=return_triplet, idim=idim, jdim=jdim)
 }
 
 
@@ -150,24 +186,37 @@ adjacency.nnsearch <- function(x, idim=nrow(x$idx), jdim=max(x$idx), return_trip
 #'
 #' @examples
 #' \donttest{
-#' # Create example data and searcher
 #' X <- matrix(rnorm(100), nrow=10, ncol=10)
 #' searcher <- nnsearcher(X)
 #' result <- find_nn(searcher, k=3)
 #' }
-#'
+#' 
 #' @method find_nn nnsearcher
 #' @export
 find_nn.nnsearcher <- function(x, query=NULL, k=5, ...) {
-  ret <- if (!is.null(query)) {
-    chk_matrix(query)
-    hnsw_search(query, x$ann, k = k)
+  if (x$backend == "hnsw") {
+    ret <- if (!is.null(query)) {
+      chk_matrix(query)
+      RcppHNSW::hnsw_search(query, x$ann, k = k)
+    } else {
+      RcppHNSW::hnsw_search(x$X, x$ann, k = k)
+    }
   } else {
-    hnsw_search(x$X, x$ann, k = k)
+    # nanoflann backend
+    points <- if (!is.null(query)) {
+      chk_matrix(query)
+      query
+    } else {
+      x$X
+    }
+    nn_result <- Rnanoflann::nn(data = x$X, points = points, k = k)
+    # Match the public API used by the HNSW backend: distances are Euclidean.
+    ret <- list(idx = nn_result$indices, dist = nn_result$distances)
   }
 
-  ret$labels <- t(apply(ret$idx, 1,  function(i) x$labels[i]))
-  search_result(x,ret)
+  # Vectorized label lookup using matrix indexing
+  ret$labels <- matrix(x$labels[ret$idx], nrow = nrow(ret$idx), ncol = ncol(ret$idx))
+  search_result(x, ret)
 }
 
 #' Find Nearest Neighbors Among Subset Using nnsearcher
@@ -180,15 +229,28 @@ find_nn.nnsearcher <- function(x, query=NULL, k=5, ...) {
 #' @param ... Additional arguments (currently unused).
 #'
 #' @return An object of class "nn_search" containing indices, distances, and labels.
+#' @examples
+#' \donttest{
+#' X <- matrix(rnorm(20), nrow=5)
+#' searcher <- nnsearcher(X)
+#' find_nn_among(searcher, k=2, idx=1:3)
+#' }
 #'
 #' @method find_nn_among nnsearcher
 #' @export
 find_nn_among.nnsearcher <- function(x, k=5, idx, ...) {
   chk_numeric(idx)
 
-  X1 <- x$X[idx,]
-  ann <- hnsw_build(X1, x$distance, M=x$M, ef=x$ef)
-  nnres <- hnsw_search(X1, ann, k=k)
+  X1 <- x$X[idx, , drop=FALSE]
+
+  if (x$backend == "hnsw") {
+    ann <- RcppHNSW::hnsw_build(X1, x$distance, M=x$M, ef=x$ef)
+    nnres <- RcppHNSW::hnsw_search(X1, ann, k=k)
+  } else {
+    nn_result <- Rnanoflann::nn(data = X1, points = X1, k = k)
+    nnres <- list(idx = nn_result$indices, dist = nn_result$distances)
+  }
+
   search_result(x, nnres)
 }
 
@@ -202,25 +264,31 @@ find_nn_among.nnsearcher <- function(x, k=5, idx, ...) {
 #' @param ... Additional arguments (currently unused).
 #'
 #' @return A search result object containing indices, distances, and labels.
+#' @examples
+#' \donttest{
+#' labs <- factor(c("a","a","b","b"))
+#' cg <- class_graph(labs)
+#' X <- matrix(rnorm(12), nrow=4)
+#' find_nn_among(cg, X, k=1)
+#' }
 #'
 #' @method find_nn_among class_graph
 #' @export
 find_nn_among.class_graph <- function(x, X, k=5, ...) {
-  searcher <- nnsearcher(X,x$labels)
+  searcher <- nnsearcher(X, x$labels)
   ret <- lapply(x$class_indices, function(ind) {
     nnr <- find_nn_among.nnsearcher(searcher, k=k, ind)
-    nnr$idx <- do.call(rbind, lapply(1:nrow(nnr$idx), function(i) {
-      ind[nnr$idx[i,]]
-    }))
-
-    nnr$labels <- t(apply(nnr$idx, 1,  function(i) x$labels[i]))
+    # Vectorized: map local indices back to original indices
+    nnr$indices <- matrix(ind[nnr$indices], nrow = nrow(nnr$indices), ncol = ncol(nnr$indices))
+    # Vectorized label lookup
+    nnr$labels <- matrix(x$labels[nnr$indices], nrow = nrow(nnr$indices), ncol = ncol(nnr$indices))
     nnr
   })
 
-  idx <- do.call(rbind, lapply(ret, "[[", "idx"))
-  d <- do.call(rbind, lapply(ret, "[[", "dist"))
+  indices <- do.call(rbind, lapply(ret, "[[", "indices"))
+  distances <- do.call(rbind, lapply(ret, "[[", "distances"))
   labels <- do.call(rbind, lapply(ret, "[[", "labels"))
-  search_result(searcher, list(idx=idx, dist=d, labels=labels))
+  search_result(searcher, list(idx=indices, dist=distances, labels=labels))
 }
 
 #' Find Nearest Neighbors Between Two Sets Using nnsearcher
@@ -236,27 +304,38 @@ find_nn_among.class_graph <- function(x, X, k=5, ...) {
 #'
 #' @return An object of class "nn_search" containing indices, distances, and labels.
 #'
+#' @examples
+#' \donttest{
+#' X <- matrix(rnorm(40), nrow=10)
+#' searcher <- nnsearcher(X)
+#' find_nn_between(searcher, k=2, idx1=1:5, idx2=6:10)
+#' }
 #' @method find_nn_between nnsearcher
 #' @export
 find_nn_between.nnsearcher <- function(x, k=5, idx1, idx2, restricted=FALSE, ...) {
   chk_numeric(idx1)
   chk_numeric(idx2)
 
-  ret <- if (!restricted) {
-    X1 <- x$X[idx1,]
-    X2 <- x$X[idx2,]
-    ann <- hnsw_build(X1, x$distance, M=x$M, ef=x$ef)
-    nnres <- hnsw_search(X2, ann, k=k)
-    nnres$idx <- do.call(rbind, lapply(1:nrow(nnres$idx), function(i) {
-      idx1[nnres$idx[i,]]
-    }))
-    nnres$labels <- t(apply(nnres$idx, 1,  function(i) x$labels[i]))
-    nnres
-  } else {
-    find_nn.nnsearcher(x, x$X[idx2,])
-  }
+  if (!restricted) {
+    X1 <- x$X[idx1, , drop = FALSE]
+    X2 <- x$X[idx2, , drop = FALSE]
 
-  search_result(x, ret)
+    if (x$backend == "hnsw") {
+      ann <- RcppHNSW::hnsw_build(X1, x$distance, M=x$M, ef=x$ef)
+      nnres <- RcppHNSW::hnsw_search(X2, ann, k=k)
+    } else {
+      nn_result <- Rnanoflann::nn(data = X1, points = X2, k = k)
+      nnres <- list(idx = nn_result$indices, dist = nn_result$distances)
+    }
+
+    # Vectorized: map local indices back to original indices
+    nnres$idx <- matrix(idx1[nnres$idx], nrow = nrow(nnres$idx), ncol = ncol(nnres$idx))
+    # Vectorized label lookup
+    nnres$labels <- matrix(x$labels[nnres$idx], nrow = nrow(nnres$idx), ncol = ncol(nnres$idx))
+    search_result(x, nnres)
+  } else {
+    find_nn.nnsearcher(x, x$X[idx2, , drop = FALSE], k = k)
+  }
 }
 
 #' Create Neighbor Graph from nnsearcher Object
@@ -272,42 +351,42 @@ find_nn_between.nnsearcher <- function(x, k=5, idx1, idx2, restricted=FALSE, ...
 #' @param ... Additional arguments (currently unused).
 #'
 #' @return A neighbor_graph object representing the constructed graph.
+#' @examples
+#' \donttest{
+#' X <- matrix(rnorm(20), nrow=5)
+#' searcher <- nnsearcher(X)
+#' neighbor_graph(searcher, k=2, type="normal", transform="heat", sigma=1)
+#' }
 #'
 #' @method neighbor_graph nnsearcher
 #' @export
 neighbor_graph.nnsearcher <- function(x, query=NULL, k=5, type=c("normal", "asym", "mutual"),
-                                                           transform=c("heat", "binary", "euclidean",
-                                                              "normalized", "cosine", "correlation"), sigma=1, ...) {
+                                      transform=c("heat", "binary", "euclidean",
+                                                  "normalized", "cosine", "correlation"), sigma=1, ...) {
+  type <- match.arg(type)
+  transform <- match.arg(transform)
 
-  nn <- find_nn.nnsearcher(x,k=(k+1))
-  D <- nn$dist[,2:(k+1)]
+ # Search for k+1 neighbors to exclude self (first column)
+  nn <- find_nn.nnsearcher(x, k = k + 1)
 
-  nnd <- sqrt(nn$dist[, 2:ncol(nn$dist),drop=FALSE])
-  nni <- nn$idx[, 2:ncol(nn$idx), drop=FALSE]
+  # Use correct field names (indices/distances) and exclude self-neighbor (column 1)
+  nni <- nn$indices[, 2:ncol(nn$indices), drop = FALSE]
+  D <- nn$distances[, 2:ncol(nn$distances), drop = FALSE]
 
-
-  hfun <- get_neighbor_fun(transform, len=ncol(x$X), sigma=sigma)
+  hfun <- get_neighbor_fun(transform, len = ncol(x$X), sigma = sigma)
   hval <- hfun(D)
 
-  W <- if (k == 1) {
-    indices_to_sparse(as.matrix(nni), as.matrix(hval), idim=nrow(x$X), jdim=nrow(x$X))
-  } else {
-    indices_to_sparse(nni, hval, idim=nrow(x$X), jdim=nrow(x$X))
-  }
+  W <- indices_to_sparse(nni, hval, idim = nrow(x$X), jdim = nrow(x$X))
 
-  gg <- if (type == "normal") {
-    igraph::graph_from_adjacency_matrix(W, weighted=TRUE, mode="max")
-  } else if (type == "mutual") {
-    igraph::graph_from_adjacency_matrix(W, weighted=TRUE, mode="min")
-  } else if (type == "asym") {
-    igraph::graph_from_adjacency_matrix(W, weighted=TRUE, mode="directed")
-  }
+  gg <- switch(type,
+    normal = igraph::graph_from_adjacency_matrix(W, weighted = TRUE, mode = "max"),
+    mutual = igraph::graph_from_adjacency_matrix(W, weighted = TRUE, mode = "min"),
+    asym   = igraph::graph_from_adjacency_matrix(W, weighted = TRUE, mode = "directed")
+  )
 
-  neighbor_graph(gg, params=list(k=k,
-                                transform=transform,
-                                sigma=sigma,
-                                type=type,
-                                labels=x$labels))
-
-
+  neighbor_graph(gg, params = list(k = k,
+                                   transform = transform,
+                                   sigma = sigma,
+                                   type = type,
+                                   labels = x$labels))
 }

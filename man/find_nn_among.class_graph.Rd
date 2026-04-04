@@ -21,3 +21,12 @@ A search result object containing indices, distances, and labels.
 \description{
 Find the nearest neighbors within each class for a class_graph object.
 }
+\examples{
+\donttest{
+labs <- factor(c("a","a","b","b"))
+cg <- class_graph(labs)
+X <- matrix(rnorm(12), nrow=4)
+find_nn_among(cg, X, k=1)
+}
+
+}

@@ -78,7 +78,6 @@ The kernel is constructed using the following principles:
 }
 }
 \examples{
-# Simple 2x3 design with nominal factors
 factors <- list(
   A = list(L=2, type="nominal"),
   B = list(L=3, type="nominal")
@@ -86,7 +85,6 @@ factors <- list(
 K1 <- design_kernel(factors)
 print(dim(K1$K))  # 6x6 cell-space kernel
 
-# Ordinal factor with smoothness
 factors <- list(
   dose = list(L=3, type="ordinal", l=1.0),
   treat = list(L=2, type="nominal")

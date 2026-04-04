@@ -17,3 +17,10 @@ A matrix containing the edges of the graph-like object.
 \description{
 Retrieve the edges of a graph-like object.
 }
+\examples{
+adj_matrix <- matrix(c(0,1,0,
+                       1,0,1,
+                       0,1,0), nrow=3, byrow=TRUE)
+ng <- neighbor_graph(adj_matrix)
+edges(ng)
+}

@@ -12,7 +12,8 @@ spatial_adjacency(
   sigma = 5,
   include_diagonal = TRUE,
   normalized = TRUE,
-  stochastic = FALSE
+  stochastic = FALSE,
+  handle_isolates = c("self_loop", "keep_zero", "drop")
 )
 }
 \arguments{
@@ -31,6 +32,8 @@ spatial_adjacency(
 \item{normalized}{Logical, whether to make row elements sum to 1 (default is TRUE)}
 
 \item{stochastic}{Logical, whether to make column elements also sum to 1 (only relevant if normalized == TRUE) (default is FALSE)}
+
+\item{handle_isolates}{How to treat zero-degree nodes when normalizing: "self_loop" adds a self-loop (default), "keep_zero" leaves them as zero, or "drop" removes them from the matrix.}
 }
 \value{
 A sparse symmetric matrix representing the computed spatial adjacency

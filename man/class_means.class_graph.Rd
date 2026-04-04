@@ -19,3 +19,8 @@ A matrix where each row represents the mean values for each class.
 \description{
 Compute the mean of each class for a class_graph object.
 }
+\examples{
+labs <- factor(c("a","a","b"))
+cg <- class_graph(labs)
+class_means(cg, matrix(1:9, nrow=3))
+}

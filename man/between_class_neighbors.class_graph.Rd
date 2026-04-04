@@ -19,3 +19,10 @@ A neighbor_graph object representing the between-class neighbors.
 \description{
 Compute the between-class neighbors of a class_graph object.
 }
+\examples{
+labs <- factor(c("a","a","b"))
+cg <- class_graph(labs)
+ng <- neighbor_graph(matrix(c(0,1,1,1,0,1,1,1,0),3))
+between_class_neighbors(cg, ng)
+
+}

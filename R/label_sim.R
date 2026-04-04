@@ -1,76 +1,130 @@
-#' Create a Binary Label Adjacency Matrix
+#' Create a Binary Label Adjacency Matrix (All Pairs)
 #'
-#' Constructs a binary adjacency matrix based on two sets of labels `a` and `b`, creating edges when `a` and `b` have the same or different labels, depending on the `type` parameter.
+#' Constructs a binary adjacency matrix based on two sets of labels `a` and `b`,
+#' creating edges for ALL pairs (i, j) where labels match (type="s") or differ (type="d").
+#' This computes the full cross-product comparison between the two label vectors.
 #'
 #' @param a A vector of labels for the first set of data points.
 #' @param b A vector of labels for the second set of data points (default: NULL). If NULL, `b` will be set to `a`.
 #' @param type A character specifying the type of adjacency matrix to create, either "s" for same labels or "d" for different labels (default: "s").
 #'
-#' @return A binary adjacency matrix with edges determined by the label relationships between `a` and `b`.
+#' @return A sparse binary adjacency matrix of dimensions (length(a) x length(b)) with 1s
+#'   where the label relationship holds.
+#'
+#' @details
+#' For type="s", the result is a block-diagonal structure when a==b, with blocks
+#' corresponding to each class. For type="d", the result is the complement.
+#'
+#' This function uses efficient sparse matrix multiplication via indicator matrices,
+#' avoiding O(n^2) memory usage from expanding all pairs.
 #'
 #' @examples
 #' data(iris)
 #' a <- iris[,5]
 #' bl <- binary_label_matrix(a, type="d")
 #'
+#' @seealso \code{\link{diagonal_label_matrix}} for element-wise (positional) comparison
+#'
 #' @export
-#' @importFrom Matrix sparseVector tcrossprod
+#' @importFrom Matrix sparseMatrix tcrossprod
 binary_label_matrix <- function(a, b = NULL, type = c("s", "d")) {
   type <- match.arg(type)
   if (is.null(b)) b <- a
 
-  fa <- as.factor(a);  fb <- as.factor(b)
-  na <- length(fa);    nb <- length(fb)
+
+  fa <- as.factor(a)
+  fb <- as.factor(b)
+  na <- length(fa)
+  nb <- length(fb)
+
+
+  # Unify factor levels between a and b for correct comparison
+  all_levels <- union(levels(fa), levels(fb))
+  fa <- factor(fa, levels = all_levels)
+  fb <- factor(fb, levels = all_levels)
+
+  ia <- as.integer(fa)
+  ib <- as.integer(fb)
+  nlev <- length(all_levels)
+
+  # Create sparse indicator matrices (efficient O(n) construction)
+  # indicator_a: na x nlev matrix with 1 at (i, label[i])
+  # indicator_b: nb x nlev matrix with 1 at (j, label[j])
+  indicator_a <- Matrix::sparseMatrix(
+    i = seq_len(na),
+    j = ia,
+    x = 1,
+    dims = c(na, nlev)
+  )
+  indicator_b <- Matrix::sparseMatrix(
+    i = seq_len(nb),
+    j = ib,
+    x = 1,
+    dims = c(nb, nlev)
+  )
 
   if (type == "s") {
-    # indices where levels coincide - need ALL pairs with same labels
-    ia <- as.integer(fa)
-    ib <- as.integer(fb)
-    
-    # Create all pairs (i,j) where label[i] == label[j]
-    pairs <- expand.grid(i = 1:na, j = 1:nb)
-    keep <- ia[pairs$i] == ib[pairs$j]
-    
-    sparseMatrix(i = pairs$i[keep],
-                 j = pairs$j[keep],
-                 x = 1L,
-                 dims = c(na, nb))
+    # Same labels: tcrossprod gives 1 where labels match
+    Matrix::tcrossprod(indicator_a, indicator_b)
   } else {
-    # different labels - need ALL pairs with different labels
-    ia <- as.integer(fa)
-    ib <- as.integer(fb)
-    
-    # Create all pairs (i,j) where label[i] != label[j]
-    pairs <- expand.grid(i = 1:na, j = 1:nb)
-    keep <- ia[pairs$i] != ib[pairs$j]
-    
-    sparseMatrix(i = pairs$i[keep],
-                 j = pairs$j[keep],
-                 x = 1L,
-                 dims = c(na, nb))
+    # Different labels: complement of same-label matrix
+    # Note: For type="d", the result can be very dense (most pairs differ)
+    # We compute it as: 1 - same_labels, but only store non-zero entries
+    same_labels <- Matrix::tcrossprod(indicator_a, indicator_b)
+    # Use drop0 to ensure sparse, then compute logical complement
+    # same_labels == 0 creates dense matrix, so we avoid that
+    # Instead, flip: start with all-1s conceptually, subtract same_labels
+    # For sparse efficiency, we accept that "different" matrices may be dense
+    ones <- Matrix::Matrix(1, nrow = na, ncol = nb, sparse = TRUE)
+    Matrix::drop0(ones - same_labels)
   }
 }
 
 
-#' Create a Label Adjacency Matrix
+#' Create a Diagonal Label Comparison Matrix (Element-wise)
 #'
-#' Constructs a label adjacency matrix based on two sets of labels `a` and `b`, creating edges depending on the `type` parameter.
+#' Compares labels at corresponding positions (element-wise) between two equal-length
+#' vectors `a` and `b`. Creates a sparse matrix with entries only on the diagonal,
+#' where position (i, i) is 1 if `a[i]` and `b[i]` satisfy the comparison.
 #'
 #' @param a A vector of labels for the first set of data points.
-#' @param b A vector of labels for the second set of data points.
-#' @param type A character specifying the type of adjacency matrix to create, either "s" for same labels or "d" for different labels (default: "s").
-#' @param dim1 The dimension of the first set of data points (default: length(a)).
-#' @param dim2 The dimension of the second set of data points (default: length(b)).
+#' @param b A vector of labels for the second set of data points. Must have same length as `a`.
+#' @param type A character specifying the comparison type: "s" for same labels (a[i] == b[i])
+#'   or "d" for different labels (a[i] != b[i]). Default is "s".
+#' @param dim1 The row dimension of the output matrix (default: length(a)).
+#' @param dim2 The column dimension of the output matrix (default: length(b)).
 #'
-#' @return A label adjacency matrix with edges determined by the label relationships between `a` and `b` and the similarity function `simfun`.
+#' @return A sparse diagonal matrix where entry (i, i) is 1 if the labels at position i
+#'   satisfy the comparison, 0 otherwise.
+#'
+#' @details
+#' This function performs element-wise comparison, NOT all-pairs comparison.
+#' For all-pairs comparison (block structure), use \code{\link{binary_label_matrix}}.
+#'
+#' The vectors `a` and `b` must have the same length. If they differ, recycling
+#' will occur which is likely unintended.
+#'
+#' @seealso \code{\link{binary_label_matrix}} for all-pairs comparison
+#'
+#' @examples
+#' a <- factor(c("x","y","x"))
+#' b <- factor(c("x","x","y"))
+#' diagonal_label_matrix(a, b, type="d")
 #'
 #' @export
-label_matrix2 <- function(a, b, type = c("s", "d"), dim1 = length(a),
-                          dim2 = length(b)) {
-
+diagonal_label_matrix <- function(a, b, type = c("s", "d"), dim1 = length(a),
+                                  dim2 = length(b)) {
   type <- match.arg(type)
-  fa <- as.factor(a);  fb <- as.factor(b)
-  ia <- as.integer(fa); ib <- as.integer(fb)
+
+
+  if (length(a) != length(b)) {
+    warning("Vectors a and b have different lengths; comparison uses recycling which may be unintended")
+  }
+
+  fa <- as.factor(a)
+  fb <- as.factor(b)
+  ia <- as.integer(fa)
+  ib <- as.integer(fb)
 
   if (type == "s") {
     keep <- ia == ib
@@ -78,29 +132,37 @@ label_matrix2 <- function(a, b, type = c("s", "d"), dim1 = length(a),
     keep <- ia != ib
   }
 
-  sparseMatrix(i = seq_len(dim1)[keep],
-               j = seq_len(dim2)[keep],
-               x = 1L,
-               dims = c(dim1, dim2))
+  idx <- which(keep)
+  Matrix::sparseMatrix(
+    i = idx,
+    j = idx,
+    x = rep(1L, length(idx)),
+    dims = c(dim1, dim2)
+  )
 }
-
-
 
 #' Convolve a Data Matrix with a Kernel Matrix
 #'
-#' Performs a convolution operation on a given data matrix `X` using a specified kernel matrix `Kern`.
+#' Performs right-multiplication of a data matrix `X` by a kernel matrix `Kern`,
+#' optionally with symmetric normalization.
 #'
-#' @param X A data matrix to be convolved.
-#' @param Kern A kernel matrix used for the convolution.
-#' @param normalize A logical flag indicating whether to normalize the kernel matrix before performing the convolution (default: FALSE).
+#' @param X A data matrix to be transformed (n x p).
+#' @param Kern A square kernel matrix (p x p) used for the transformation.
+#' @param normalize A logical flag indicating whether to apply symmetric normalization
+#'   D^(-1/2) Kern D^(-1/2) before multiplication (default: FALSE).
 #'
-#' @return A matrix resulting from the convolution of the data matrix `X` with the kernel matrix `Kern`.
+#' @return A matrix resulting from X \%*\% Kern (or normalized version).
 #'
 #' @importFrom Matrix Diagonal
-#' @importFrom assertthat assert_that
+#' @return A matrix resulting from \code{X \%*\% Kern} (or the normalized version when \code{normalize=TRUE}).
+#' @examples
+#' X <- matrix(1:6, nrow=2)
+#' K <- diag(3)
+#' convolve_matrix(X, K)
 #' @export
 convolve_matrix <- function(X, Kern, normalize = FALSE) {
-  stopifnot(ncol(Kern) == nrow(Kern), ncol(X) == nrow(Kern))
+  assertthat::assert_that(ncol(Kern) == nrow(Kern), msg = "'Kern' must be a square matrix")
+  assertthat::assert_that(ncol(X) == nrow(Kern), msg = "ncol(X) must equal nrow(Kern)")
 
   if (normalize) {
     rs <- rowSums(Kern)
@@ -111,35 +173,59 @@ convolve_matrix <- function(X, Kern, normalize = FALSE) {
 }
 
 
-
-#' Compute a Similarity or Distance Matrix for Categorical Labels
+#' Diagonal Label Comparison with NA Handling
 #'
-#' Calculates a similarity or distance matrix between two categorical label vectors `a` and `b`.
+#' Compares labels at corresponding positions (element-wise) between two equal-length
+#' vectors `a` and `b`, with explicit NA handling. Creates a sparse matrix with entries
+#' only on the diagonal.
 #'
 #' @param a The first categorical label vector.
-#' @param b The second categorical label vector.
-#' @param type The type of matrix to construct, either a similarity ('s') or distance ('d') matrix.
-#' @param return_matrix A logical flag indicating whether to return the result as a sparse matrix (default: TRUE) or a triplet.
-#' @param dim1 The length of the first dimension.
-#' @param dim2 The length of the second dimension.
+#' @param b The second categorical label vector. Must have same length as `a`.
+#' @param type The type of comparison: "s" for same labels (a[i] == b[i])
+#'   or "d" for different labels (a[i] != b[i]). Default is "s".
+#' @param return_matrix A logical flag indicating whether to return the result as a
+#'   sparse matrix (default: TRUE) or a triplet matrix with columns (i, j, x).
+#' @param dim1 The row dimension of the output matrix (default: length(a)).
+#' @param dim2 The column dimension of the output matrix (default: length(b)).
 #'
-#' @return A similarity or distance matrix between the categorical label vectors `a` and `b`, either as a sparse matrix or a triplet.
+#' @return If return_matrix is TRUE, a sparse diagonal matrix where entry (i, i) is 1
+#'   if the labels at position i satisfy the comparison (and neither is NA).
+#'   If return_matrix is FALSE, a 3-column matrix of (row, col, value) triplets.
+#'
+#' @details
+#' This function performs element-wise (positional) comparison, NOT all-pairs comparison.
+#' Positions where either label is NA are excluded from the result.
+#'
+#' For all-pairs comparison (block structure), use \code{\link{binary_label_matrix}}.
+#' For diagonal comparison without NA handling, use \code{\link{diagonal_label_matrix}}.
+#'
+#' @seealso \code{\link{binary_label_matrix}}, \code{\link{diagonal_label_matrix}}
 #'
 #' @importFrom Matrix sparseMatrix
+#' @examples
+#' a <- c("x","y", NA)
+#' b <- c("x","y","y")
+#' diagonal_label_matrix_na(a, b, type="s", return_matrix=TRUE)
 #' @export
-label_matrix <- function(a, b, type = c("s", "d"),
-                         return_matrix = TRUE,
-                         dim1 = length(a),
-                         dim2 = length(b)) {
-
+diagonal_label_matrix_na <- function(a, b, type = c("s", "d"),
+                                     return_matrix = TRUE,
+                                     dim1 = length(a),
+                                     dim2 = length(b)) {
   type <- match.arg(type)
 
-  fa <- as.factor(a);  fb <- as.factor(b)
-  ia <- as.integer(fa); ib <- as.integer(fb)
+  if (length(a) != length(b)) {
+    warning("Vectors a and b have different lengths; comparison uses recycling which may be unintended")
+  }
 
+  fa <- as.factor(a)
+  fb <- as.factor(b)
+  ia <- as.integer(fa)
+  ib <- as.integer(fb)
+
+  # Element-wise comparison with NA handling
   if (type == "s") {
     keep <- ia == ib & !is.na(ia) & !is.na(ib)
-  } else {                               # different
+  } else {
     keep <- ia != ib & !is.na(ia) & !is.na(ib)
   }
 
@@ -151,17 +237,18 @@ label_matrix <- function(a, b, type = c("s", "d"),
     }
   }
 
-  I <- which(keep)
+  idx <- which(keep)
   if (return_matrix) {
-    sparseMatrix(i = I,
-                 j = I,     # same length vectors ⇒ same indices
-                 x = 1L,
-                 dims = c(dim1, dim2))
+    Matrix::sparseMatrix(
+      i = idx,
+      j = idx,
+      x = rep(1L, length(idx)),
+      dims = c(dim1, dim2)
+    )
   } else {
-    cbind(I, I, 1L)
+    cbind(idx, idx, 1L)
   }
 }
-
 
 #' Expand Similarity Between Labels Based on a Precomputed Similarity Matrix
 #'
@@ -174,6 +261,12 @@ label_matrix <- function(a, b, type = c("s", "d"),
 #'
 #' @return A sparse symmetric similarity matrix with the expanded similarity values.
 #'
+#' @examples
+#' labels <- c("a","b","a")
+#' smat <- matrix(c(1,.2,.2, 0.2,1,0.5, 0.2,0.5,1), nrow=3,
+#'                dimnames=list(c("a","b","c"), c("a","b","c")))
+#' expand_label_similarity(labels, smat, threshold=0.1)
+#'
 #' @export
 expand_label_similarity <- function(labels, sim_mat, threshold=0, above=TRUE) {
   cnames <- colnames(sim_mat)
@@ -181,7 +274,8 @@ expand_label_similarity <- function(labels, sim_mat, threshold=0, above=TRUE) {
   assertthat::assert_that(!(is.null(cnames) && is.null(rnames)))
 
   if (!is.null(cnames) && !is.null(rnames)) {
-    assertthat::assert_that(all.equal(cnames, rnames))
+    assertthat::assert_that(identical(cnames, rnames),
+                            msg = "Row and column names of similarity matrix must be identical")
   }
   if (is.null(cnames)) {
     lnames <- rnames
@@ -215,9 +309,6 @@ expand_label_similarity <- function(labels, sim_mat, threshold=0, above=TRUE) {
     return(sparseMatrix(i={}, j={}, x={}, dims=c(length(labels), length(labels)), symmetric=TRUE))
   }
 
-  # out is already a matrix, no need for do.call(rbind, out)
-  # out <- do.call(rbind, out)
-
   # Ensure columns are numeric before passing to sparseMatrix
   i_col <- as.numeric(out[,1])
   j_col <- as.numeric(out[,2])
@@ -238,5 +329,3 @@ expand_label_similarity <- function(labels, sim_mat, threshold=0, above=TRUE) {
                index1 = TRUE) # Assuming C++ returns 1-based indices
 
 }
-
-

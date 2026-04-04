@@ -12,52 +12,38 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // expand_similarity_cpp
-NumericMatrix expand_similarity_cpp(IntegerVector indices, NumericMatrix simmat, double thresh);
-RcppExport SEXP _neighborweights_expand_similarity_cpp(SEXP indicesSEXP, SEXP simmatSEXP, SEXP threshSEXP) {
+NumericMatrix expand_similarity_cpp(const IntegerVector& indices, const NumericMatrix& simmat, double thresh);
+RcppExport SEXP _adjoin_expand_similarity_cpp(SEXP indicesSEXP, SEXP simmatSEXP, SEXP threshSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< IntegerVector >::type indices(indicesSEXP);
-    Rcpp::traits::input_parameter< NumericMatrix >::type simmat(simmatSEXP);
+    Rcpp::traits::input_parameter< const IntegerVector& >::type indices(indicesSEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type simmat(simmatSEXP);
     Rcpp::traits::input_parameter< double >::type thresh(threshSEXP);
     rcpp_result_gen = Rcpp::wrap(expand_similarity_cpp(indices, simmat, thresh));
     return rcpp_result_gen;
 END_RCPP
 }
 // expand_similarity_below_cpp
-NumericMatrix expand_similarity_below_cpp(IntegerVector indices, NumericMatrix simmat, double thresh);
-RcppExport SEXP _neighborweights_expand_similarity_below_cpp(SEXP indicesSEXP, SEXP simmatSEXP, SEXP threshSEXP) {
+NumericMatrix expand_similarity_below_cpp(const IntegerVector& indices, const NumericMatrix& simmat, double thresh);
+RcppExport SEXP _adjoin_expand_similarity_below_cpp(SEXP indicesSEXP, SEXP simmatSEXP, SEXP threshSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< IntegerVector >::type indices(indicesSEXP);
-    Rcpp::traits::input_parameter< NumericMatrix >::type simmat(simmatSEXP);
+    Rcpp::traits::input_parameter< const IntegerVector& >::type indices(indicesSEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type simmat(simmatSEXP);
     Rcpp::traits::input_parameter< double >::type thresh(threshSEXP);
     rcpp_result_gen = Rcpp::wrap(expand_similarity_below_cpp(indices, simmat, thresh));
     return rcpp_result_gen;
 END_RCPP
 }
-// order_vec
-IntegerVector order_vec(NumericVector x);
-RcppExport SEXP _neighborweights_order_vec(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(order_vec(x));
-    return rcpp_result_gen;
-END_RCPP
-}
 // cross_fspatial_weights
-NumericMatrix cross_fspatial_weights(List indices, List distances, NumericMatrix feature_mat1, NumericMatrix feature_mat2, double sigma, double fsigma, double alpha, int maxk, bool binary);
-RcppExport SEXP _neighborweights_cross_fspatial_weights(SEXP indicesSEXP, SEXP distancesSEXP, SEXP feature_mat1SEXP, SEXP feature_mat2SEXP, SEXP sigmaSEXP, SEXP fsigmaSEXP, SEXP alphaSEXP, SEXP maxkSEXP, SEXP binarySEXP) {
+NumericMatrix cross_fspatial_weights(const List& indices, const List& distances, const NumericMatrix& feature_mat1, const NumericMatrix& feature_mat2, double sigma, double fsigma, double alpha, int maxk, bool binary);
+RcppExport SEXP _adjoin_cross_fspatial_weights(SEXP indicesSEXP, SEXP distancesSEXP, SEXP feature_mat1SEXP, SEXP feature_mat2SEXP, SEXP sigmaSEXP, SEXP fsigmaSEXP, SEXP alphaSEXP, SEXP maxkSEXP, SEXP binarySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< List >::type indices(indicesSEXP);
-    Rcpp::traits::input_parameter< List >::type distances(distancesSEXP);
-    Rcpp::traits::input_parameter< NumericMatrix >::type feature_mat1(feature_mat1SEXP);
-    Rcpp::traits::input_parameter< NumericMatrix >::type feature_mat2(feature_mat2SEXP);
+    Rcpp::traits::input_parameter< const List& >::type indices(indicesSEXP);
+    Rcpp::traits::input_parameter< const List& >::type distances(distancesSEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type feature_mat1(feature_mat1SEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type feature_mat2(feature_mat2SEXP);
     Rcpp::traits::input_parameter< double >::type sigma(sigmaSEXP);
     Rcpp::traits::input_parameter< double >::type fsigma(fsigmaSEXP);
     Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
@@ -68,14 +54,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // bilateral_weights
-NumericMatrix bilateral_weights(List indices, List distances, NumericMatrix feature_mat, double sigma, double fsigma);
-RcppExport SEXP _neighborweights_bilateral_weights(SEXP indicesSEXP, SEXP distancesSEXP, SEXP feature_matSEXP, SEXP sigmaSEXP, SEXP fsigmaSEXP) {
+NumericMatrix bilateral_weights(const List& indices, const List& distances, const NumericMatrix& feature_mat, double sigma, double fsigma);
+RcppExport SEXP _adjoin_bilateral_weights(SEXP indicesSEXP, SEXP distancesSEXP, SEXP feature_matSEXP, SEXP sigmaSEXP, SEXP fsigmaSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< List >::type indices(indicesSEXP);
-    Rcpp::traits::input_parameter< List >::type distances(distancesSEXP);
-    Rcpp::traits::input_parameter< NumericMatrix >::type feature_mat(feature_matSEXP);
+    Rcpp::traits::input_parameter< const List& >::type indices(indicesSEXP);
+    Rcpp::traits::input_parameter< const List& >::type distances(distancesSEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type feature_mat(feature_matSEXP);
     Rcpp::traits::input_parameter< double >::type sigma(sigmaSEXP);
     Rcpp::traits::input_parameter< double >::type fsigma(fsigmaSEXP);
     rcpp_result_gen = Rcpp::wrap(bilateral_weights(indices, distances, feature_mat, sigma, fsigma));
@@ -83,14 +68,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // fspatial_weights
-NumericMatrix fspatial_weights(List indices, List distances, NumericMatrix feature_mat, double sigma, double fsigma, double alpha, bool binary);
-RcppExport SEXP _neighborweights_fspatial_weights(SEXP indicesSEXP, SEXP distancesSEXP, SEXP feature_matSEXP, SEXP sigmaSEXP, SEXP fsigmaSEXP, SEXP alphaSEXP, SEXP binarySEXP) {
+NumericMatrix fspatial_weights(const List& indices, const List& distances, const NumericMatrix& feature_mat, double sigma, double fsigma, double alpha, bool binary);
+RcppExport SEXP _adjoin_fspatial_weights(SEXP indicesSEXP, SEXP distancesSEXP, SEXP feature_matSEXP, SEXP sigmaSEXP, SEXP fsigmaSEXP, SEXP alphaSEXP, SEXP binarySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< List >::type indices(indicesSEXP);
-    Rcpp::traits::input_parameter< List >::type distances(distancesSEXP);
-    Rcpp::traits::input_parameter< NumericMatrix >::type feature_mat(feature_matSEXP);
+    Rcpp::traits::input_parameter< const List& >::type indices(indicesSEXP);
+    Rcpp::traits::input_parameter< const List& >::type distances(distancesSEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type feature_mat(feature_matSEXP);
     Rcpp::traits::input_parameter< double >::type sigma(sigmaSEXP);
     Rcpp::traits::input_parameter< double >::type fsigma(fsigmaSEXP);
     Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
@@ -100,13 +84,12 @@ BEGIN_RCPP
 END_RCPP
 }
 // spatial_weights
-NumericMatrix spatial_weights(List indices, List distances, double sigma, bool binary);
-RcppExport SEXP _neighborweights_spatial_weights(SEXP indicesSEXP, SEXP distancesSEXP, SEXP sigmaSEXP, SEXP binarySEXP) {
+NumericMatrix spatial_weights(const List& indices, const List& distances, double sigma, bool binary);
+RcppExport SEXP _adjoin_spatial_weights(SEXP indicesSEXP, SEXP distancesSEXP, SEXP sigmaSEXP, SEXP binarySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< List >::type indices(indicesSEXP);
-    Rcpp::traits::input_parameter< List >::type distances(distancesSEXP);
+    Rcpp::traits::input_parameter< const List& >::type indices(indicesSEXP);
+    Rcpp::traits::input_parameter< const List& >::type distances(distancesSEXP);
     Rcpp::traits::input_parameter< double >::type sigma(sigmaSEXP);
     Rcpp::traits::input_parameter< bool >::type binary(binarySEXP);
     rcpp_result_gen = Rcpp::wrap(spatial_weights(indices, distances, sigma, binary));
@@ -115,17 +98,16 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_neighborweights_expand_similarity_cpp", (DL_FUNC) &_neighborweights_expand_similarity_cpp, 3},
-    {"_neighborweights_expand_similarity_below_cpp", (DL_FUNC) &_neighborweights_expand_similarity_below_cpp, 3},
-    {"_neighborweights_order_vec", (DL_FUNC) &_neighborweights_order_vec, 1},
-    {"_neighborweights_cross_fspatial_weights", (DL_FUNC) &_neighborweights_cross_fspatial_weights, 9},
-    {"_neighborweights_bilateral_weights", (DL_FUNC) &_neighborweights_bilateral_weights, 5},
-    {"_neighborweights_fspatial_weights", (DL_FUNC) &_neighborweights_fspatial_weights, 7},
-    {"_neighborweights_spatial_weights", (DL_FUNC) &_neighborweights_spatial_weights, 4},
+    {"_adjoin_expand_similarity_cpp", (DL_FUNC) &_adjoin_expand_similarity_cpp, 3},
+    {"_adjoin_expand_similarity_below_cpp", (DL_FUNC) &_adjoin_expand_similarity_below_cpp, 3},
+    {"_adjoin_cross_fspatial_weights", (DL_FUNC) &_adjoin_cross_fspatial_weights, 9},
+    {"_adjoin_bilateral_weights", (DL_FUNC) &_adjoin_bilateral_weights, 5},
+    {"_adjoin_fspatial_weights", (DL_FUNC) &_adjoin_fspatial_weights, 7},
+    {"_adjoin_spatial_weights", (DL_FUNC) &_adjoin_spatial_weights, 4},
     {NULL, NULL, 0}
 };
 
-RcppExport void R_init_neighborweights(DllInfo *dll) {
+RcppExport void R_init_adjoin(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
 }

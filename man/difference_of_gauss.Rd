@@ -8,7 +8,7 @@ difference_of_gauss(
   coord_mat,
   sigma1 = 2,
   sigma2 = sigma1 * 1.6,
-  nnk = 3^(ncol(coord_mat))
+  nnk = min(nrow(coord_mat), max(27, ncol(coord_mat)^2))
 )
 }
 \arguments{
@@ -27,10 +27,8 @@ A sparse symmetric matrix representing the computed Difference of Gaussians
 This function computes the Difference of Gaussians for a given coordinate matrix using specified sigma values and the number of nearest neighbors.
 }
 \examples{
-# Create an example coordinate matrix
 coord_mat <- matrix(c(1, 2, 3, 4, 5, 6), nrow = 3, ncol = 2)
 
-# Compute the Difference of Gaussians with sigma1 = 2 and sigma2 = 3.2
 result <- difference_of_gauss(coord_mat, sigma1 = 2, sigma2 = 3.2)
 
 }

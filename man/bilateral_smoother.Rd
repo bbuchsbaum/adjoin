@@ -18,7 +18,7 @@ bilateral_smoother(
 
 \item{feature_mat}{A matrix with the feature vectors of the data points, where each row represents a point and each column represents a feature dimension.}
 
-\item{nnk}{The number of nearest neighbors to consider for smoothing (default: 27).}
+\item{nnk}{The number of nearest neighbors to consider for smoothing (default: 27). Must be >= 4.}
 
 \item{s_sigma}{The spatial bandwidth in standard deviations (default: 2.5).}
 

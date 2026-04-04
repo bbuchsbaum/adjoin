@@ -20,23 +20,24 @@ nnsearcher(
 
 \item{...}{Additional arguments (currently unused).}
 
-\item{distance}{The distance metric to use. One of "l2", "euclidean", "cosine", or "ip".}
+\item{distance}{The distance metric to use. One of "l2", "euclidean", "cosine", or "ip".
+Note: "cosine" and "ip" require the RcppHNSW package.}
 
-\item{M}{The maximum number of connections for every new element during construction.}
+\item{M}{The maximum number of connections for HNSW (only used with cosine/ip).}
 
-\item{ef}{The size of the dynamic candidate list.}
+\item{ef}{The size of the dynamic candidate list for HNSW (only used with cosine/ip).}
 }
 \value{
-An object of class "nnsearcher" containing the data matrix, labels, 
-  HNSW index, and search parameters.
+An object of class "nnsearcher" containing the data matrix, labels,
+  search index, and search parameters.
 }
 \description{
-Create a nearest neighbor searcher object using HNSW (Hierarchical Navigable 
-Small World) algorithm for efficient approximate nearest neighbor search.
+Create a nearest neighbor searcher object for efficient nearest neighbor search.
+Uses Rnanoflann (exact Euclidean search) by default, or RcppHNSW (approximate search
+with cosine/inner-product support) when those distance metrics are requested.
 }
 \examples{
 \donttest{
-# Create example data
 X <- matrix(rnorm(100), nrow=10, ncol=10)
 searcher <- nnsearcher(X)
 }

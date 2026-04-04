@@ -11,6 +11,16 @@
 
 \item{...}{Additional arguments passed to print}
 }
+\value{
+The input \code{x}, invisibly.
+}
 \description{
 Print method for repulsion_graph objects
+}
+\examples{
+coords <- matrix(c(0,0,1,0), ncol=2, byrow=TRUE)
+W <- neighbor_graph(spatial_adjacency(coords, nnk=2, sigma=1))
+cg <- class_graph(factor(c(1,2)))
+rg <- repulsion_graph(W, cg)
+print(rg)
 }

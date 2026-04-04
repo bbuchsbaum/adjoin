@@ -15,3 +15,8 @@ The number of classes in the class_graph.
 \description{
 Compute the number of classes in a class_graph object.
 }
+\examples{
+labs <- factor(c("a","a","b"))
+cg <- class_graph(labs)
+nclasses(cg)
+}

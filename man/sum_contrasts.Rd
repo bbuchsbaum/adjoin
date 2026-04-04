@@ -18,7 +18,6 @@ Creates sum-to-zero contrast matrices for a set of factors,
 suitable for use with effect-coded kernels.
 }
 \examples{
-# Two factors with 3 and 4 levels
 contrasts <- sum_contrasts(c(A=3, B=4))
 print(dim(contrasts$A))  # 3 x 2
 print(dim(contrasts$B))  # 4 x 3

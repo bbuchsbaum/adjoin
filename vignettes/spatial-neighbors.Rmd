@@ -19,7 +19,7 @@ knitr::opts_chunk$set(
 ```
 
 ```{r load-pkg}
-library(neighborweights)
+library(adjoin)
 library(Matrix)
 ```
 
@@ -31,7 +31,7 @@ For these data the question "who is my neighbor?" has a physical answer — Eucl
 distance in coordinate space — rather than a statistical one derived from feature
 vectors.
 
-`neighborweights` provides a focused set of functions that build adjacency
+`adjoin` provides a focused set of functions that build adjacency
 matrices directly from coordinate matrices. The output is always a sparse
 `Matrix` with the same interface as feature-based graphs: `adjacency()`,
 `laplacian()`, and normalization all work the same way.
@@ -397,7 +397,7 @@ weighting.
 ## Where to go next
 
 - **Feature-based graphs** — `graph_weights()` and `nnsearcher()` build graphs
-  from feature vectors rather than coordinates; see `vignette("neighborweights")`.
+  from feature vectors rather than coordinates; see `vignette("adjoin")`.
 - **Diffusion** — `compute_diffusion_kernel()` propagates information through any
   adjacency matrix, spatial or feature-based.
 - **Label constraints** — `expand_label_similarity()` combines spatial proximity

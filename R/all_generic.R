@@ -9,6 +9,12 @@
 #'
 #' @return The graph Laplacian matrix of the given weight matrix.
 #'
+#' @examples
+#' W <- Matrix::Matrix(c(0,1,0,
+#'               1,0,1,
+#'               0,1,0), nrow=3, byrow=TRUE, sparse=TRUE)
+#' ng <- neighbor_graph(W)
+#' laplacian(ng)
 #' @export
 laplacian <- function(x,...) UseMethod("laplacian")
 
@@ -23,7 +29,6 @@ laplacian <- function(x,...) UseMethod("laplacian")
 #' @return The number of vertices in the neighbor_graph object.
 #'
 #' @examples
-#' # Create a small example graph
 #' adj_matrix <- matrix(c(0, 1, 1, 0, 1, 0, 1, 0, 0), nrow = 3, byrow = TRUE)
 #' ng <- neighbor_graph(adj_matrix)
 #' nvertices(ng) # Should return 3
@@ -41,14 +46,12 @@ nvertices <- function(x, ...) UseMethod("nvertices")
 #'
 #' @return A list of vertex indices representing the neighbors of the specified vertices. The length of the list is equal to the number of input vertices, and each element in the list contains the neighbor indices for the corresponding input vertex.
 #'
+#' @export
 #' @examples
-#' \dontrun{
-#' # Create an example graph  
-#' library(igraph)
-#' g <- neighbor_graph(make_ring(5))
+#' \donttest{
+#' g <- neighbor_graph(igraph::make_ring(5))
 #'
-#' # Get neighbors of vertex 1
-#' n <- neighbors(g, 1)
+#' n <- adjoin::neighbors(g, 1)
 #' }
 neighbors <- function(x, i, ...) UseMethod("neighbors")
 
@@ -60,6 +63,12 @@ neighbors <- function(x, i, ...) UseMethod("neighbors")
 #' @param ... Additional arguments passed to specific methods.
 #'
 #' @return A sparse Matrix object representing the adjacency matrix.
+#' @examples
+#' adj_matrix <- matrix(c(0,1,0,
+#'                        1,0,1,
+#'                        0,1,0), nrow=3, byrow=TRUE)
+#' ng <- neighbor_graph(adj_matrix)
+#' adjacency(ng)
 #' @export
 adjacency <- function(x,...) UseMethod("adjacency")
 
@@ -72,6 +81,12 @@ adjacency <- function(x,...) UseMethod("adjacency")
 #' @param ... Additional arguments passed to specific methods.
 #'
 #' @return A numeric vector of node indices that are not neighbors of the given node.
+#' @examples
+#' adj_matrix <- matrix(c(0,1,0,
+#'                        1,0,0,
+#'                        0,0,0), nrow=3, byrow=TRUE)
+#' ng <- neighbor_graph(adj_matrix)
+#' non_neighbors(ng, 1)
 #' @export
 non_neighbors <- function(x,...) UseMethod("non_neighbors")
 
@@ -83,6 +98,12 @@ non_neighbors <- function(x,...) UseMethod("non_neighbors")
 #' @param ... Additional arguments passed to specific methods.
 #'
 #' @return A numeric vector of node densities.
+#' @examples
+#' adj_matrix <- matrix(c(0,1,1,
+#'                        1,0,0,
+#'                        1,0,0), nrow=3, byrow=TRUE)
+#' ng <- neighbor_graph(adj_matrix)
+#' node_density(ng, matrix(rnorm(9), nrow=3))
 #' @export
 node_density <- function(x, ...) UseMethod("node_density")
 
@@ -94,6 +115,10 @@ node_density <- function(x, ...) UseMethod("node_density")
 #' @param ... Additional arguments passed to specific methods.
 #'
 #' @return A matrix or data frame representing the means of each class, the structure of which depends on the input object's class.
+#' @examples
+#' labs <- factor(c("a","a","b"))
+#' cg <- class_graph(labs)
+#' class_means(cg, matrix(1:9, nrow=3))
 #'
 #' @export
 class_means <- function(x, ...) UseMethod("class_means")
@@ -105,6 +130,10 @@ class_means <- function(x, ...) UseMethod("class_means")
 #' @param x An object.
 #'
 #' @return The number of classes in the input object.
+#' @examples
+#' labs <- factor(c("a","a","b"))
+#' cg <- class_graph(labs)
+#' nclasses(cg)
 #'
 #' @export
 nclasses <- function(x) UseMethod("nclasses")
@@ -122,6 +151,11 @@ nclasses <- function(x) UseMethod("nclasses")
 #' @param ... Additional arguments passed to specific methods.
 #'
 #' @return An object representing the within-class neighbors of the input graph, the structure of which depends on the input object's class.
+#' @examples
+#' labs <- factor(c("a","a","b"))
+#' cg <- class_graph(labs)
+#' ng <- neighbor_graph(diag(3))
+#' within_class_neighbors(cg, ng)
 #'
 #' @export
 within_class_neighbors <- function(x, ng, ...) UseMethod("within_class_neighbors")
@@ -136,6 +170,11 @@ within_class_neighbors <- function(x, ng, ...) UseMethod("within_class_neighbors
 #' @param ... Additional arguments passed to specific methods.
 #'
 #' @return An object representing the between-class neighbors of the input graph, the structure of which depends on the input object's class.
+#' @examples
+#' labs <- factor(c("a","a","b"))
+#' cg <- class_graph(labs)
+#' ng <- neighbor_graph(matrix(c(0,1,1,1,0,1,1,1,0),3))
+#' between_class_neighbors(cg, ng)
 #'
 #' @export
 between_class_neighbors <- function(x, ng,...) UseMethod("between_class_neighbors")
@@ -151,6 +190,12 @@ between_class_neighbors <- function(x, ng,...) UseMethod("between_class_neighbor
 #' @param ... Further arguments passed to or from other methods.
 #'
 #' @return A matrix containing the edges of the graph-like object.
+#' @examples
+#' adj_matrix <- matrix(c(0,1,0,
+#'                        1,0,1,
+#'                        0,1,0), nrow=3, byrow=TRUE)
+#' ng <- neighbor_graph(adj_matrix)
+#' edges(ng)
 #' @export
 edges <- function(x, ...) UseMethod("edges")
 
@@ -172,6 +217,11 @@ neighbor_graph <- function(x, ...) UseMethod("neighbor_graph")
 #' @param result The result from the nearest neighbor search.
 #'
 #' @return An object with the class "nn_search".
+#' @examples
+#' res <- list(idx = matrix(c(1L,2L), nrow=1),
+#'             dist = matrix(c(0.1,0.2), nrow=1))
+#' dummy <- nnsearcher(matrix(rnorm(4), nrow=2))
+#' search_result(dummy, res)
 #' @export
 search_result <- function(x, result) {
   UseMethod("search_result")
@@ -185,6 +235,9 @@ search_result <- function(x, result) {
 #' @param ... Additional arguments passed to specific methods.
 #'
 #' @return A similarity matrix or object with distances converted to similarities.
+#' @examples
+#' d <- Matrix::Matrix(as.matrix(dist(matrix(rnorm(6), ncol=2))), sparse=TRUE)
+#' dist_to_sim(d, method="heat", sigma=1)
 #' @export
 dist_to_sim <- function(x, ...) {
   UseMethod("dist_to_sim")
@@ -197,6 +250,12 @@ dist_to_sim <- function(x, ...) {
 #' @param ... Further arguments passed to or from other methods.
 #'
 #' @return A nearest neighbors result object.
+#' @examples
+#' \donttest{
+#' X <- matrix(rnorm(20), nrow=5)
+#' nn <- nnsearcher(X)
+#' find_nn(nn, k=2)
+#' }
 #' @export
 find_nn <- function(x, ...) {
   UseMethod("find_nn")
@@ -208,6 +267,12 @@ find_nn <- function(x, ...) {
 #' @param ... Further arguments passed to or from other methods.
 #'
 #' @return A nearest neighbors result object.
+#' @examples
+#' \donttest{
+#' X <- matrix(rnorm(20), nrow=5)
+#' nn <- nnsearcher(X)
+#' find_nn_among(nn, k=2, idx=1:3)
+#' }
 #' @export
 find_nn_among <- function(x, ...) {
   UseMethod("find_nn_among")
@@ -219,9 +284,13 @@ find_nn_among <- function(x, ...) {
 #' @param ... Further arguments passed to or from other methods.
 #'
 #' @return A nearest neighbors result object.
+#' @examples
+#' \donttest{
+#' X <- matrix(rnorm(20), nrow=5)
+#' nn <- nnsearcher(X)
+#' find_nn_between(nn, k=1, idx1=1:2, idx2=3:5)
+#' }
 #' @export
 find_nn_between <- function(x, ...) {
   UseMethod("find_nn_between")
 }
-
-

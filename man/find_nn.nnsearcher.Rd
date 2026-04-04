@@ -23,7 +23,6 @@ Search for the k nearest neighbors using a pre-built nnsearcher object.
 }
 \examples{
 \donttest{
-# Create example data and searcher
 X <- matrix(rnorm(100), nrow=10, ncol=10)
 searcher <- nnsearcher(X)
 result <- find_nn(searcher, k=3)

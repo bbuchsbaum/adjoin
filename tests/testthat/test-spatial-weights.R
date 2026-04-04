@@ -1,6 +1,6 @@
 library(testthat)
 library(Matrix)
-library(neighborweights)
+library(adjoin)
 
 context("Spatial weights and adjacency functions")
 

@@ -13,6 +13,12 @@ normalized_heat_kernel(x, sigma = 0.68, len)
 
 \item{len}{the normalization factor (e.g. the length of the feature vectors)}
 }
+\value{
+Numeric vector/matrix of normalized heat kernel values.
+}
 \description{
 normalized_heat_kernel
+}
+\examples{
+normalized_heat_kernel(c(1,2), sigma = .5, len = 4)
 }

@@ -17,3 +17,10 @@ A nearest neighbors result object.
 \description{
 Find nearest neighbors
 }
+\examples{
+\donttest{
+X <- matrix(rnorm(20), nrow=5)
+nn <- nnsearcher(X)
+find_nn(nn, k=2)
+}
+}

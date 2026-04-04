@@ -25,7 +25,6 @@ normalized by the square of the neighborhood size.
 }
 \examples{
 \donttest{
-# Create example data and graph
 X <- matrix(rnorm(30), nrow = 10, ncol = 3)
 adj_matrix <- Matrix::Matrix(diag(10), sparse = TRUE)
 ng <- neighbor_graph(adj_matrix)

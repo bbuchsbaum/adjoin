@@ -7,7 +7,7 @@
 graph_weights(
   X,
   k = 5,
-  neighbor_mode = c("knn", "epsilon"),
+  neighbor_mode = c("knn"),
   weight_mode = c("heat", "normalized", "binary", "euclidean", "cosine", "correlation"),
   type = c("normal", "mutual", "asym"),
   sigma = NULL,
@@ -45,13 +45,19 @@ Convert a data matrix with n instances and p features to an n-by-n adjacency gra
 This function converts a data matrix with n instances and p features into an adjacency graph. The adjacency graph is created
 based on the specified neighbor and weight modes. The neighbor mode determines how neighbors are assigned weights, and the weight
 mode defines the method used to compute weights.
+
+Distances passed to `weight_mode` kernels are Euclidean (square root already applied to
+Rnanoflann outputs). Custom kernels should be written accordingly; if a kernel expects
+squared distances, wrap it to square its input.
 }
 \examples{
-# Sample data
 X <- matrix(rnorm(100*100), 100, 100)
 sm <- graph_weights(X, neighbor_mode="knn", weight_mode="normalized", k=3)
 
 labels <- factor(rep(letters[1:4], 5))
 sm3 <- graph_weights(X, neighbor_mode="knn", k=3, labels=labels, weight_mode="cosine")
 sm4 <- graph_weights(X, neighbor_mode="knn", k=100, labels=labels, weight_mode="cosine")
+}
+\seealso{
+\code{\link{graph_weights_fast}} for additional backends and self-tuning options
 }

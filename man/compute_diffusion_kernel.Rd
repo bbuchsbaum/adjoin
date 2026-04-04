@@ -25,14 +25,11 @@ leading k eigenpairs of the normalized transition matrix.
 }
 \examples{
 library(Matrix)
-# Create a simple 5x5 adjacency matrix (path graph)
 A <- sparseMatrix(i = c(1, 2, 3, 4), j = c(2, 3, 4, 5), 
                   x = c(1, 1, 1, 1), dims = c(5, 5))
 A <- A + t(A)  # Make symmetric
 
-# Compute diffusion kernel with t = 0.5
 K <- compute_diffusion_kernel(A, t = 0.5)
 
-# Use only top 3 eigenpairs for efficiency
 K_approx <- compute_diffusion_kernel(A, t = 0.5, k = 3)
 }

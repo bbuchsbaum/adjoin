@@ -24,13 +24,11 @@ This function computes the commute-time distance between nodes in a graph using 
 pseudoinverse methods.
 }
 \examples{
-# Create an example adjacency matrix
 A <- matrix(c(0, 1, 1, 0,
              1, 0, 1, 1,
              1, 1, 0, 1,
              0, 1, 1, 0), nrow = 4, byrow = TRUE)
 
-# Compute the commute-time distance
 result <- commute_time_distance(A)
 
 }

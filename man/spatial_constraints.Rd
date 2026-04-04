@@ -21,7 +21,8 @@ spatial_constraints(
 \arguments{
 \item{coords}{The spatial coordinates as a matrix with rows as objects and columns as dimensions; or as a list of matrices where each element of the list contains the coordinates for a block.}
 
-\item{nblocks}{The number of coordinate blocks. Default is 1.}
+\item{nblocks}{The number of coordinate blocks. Default is 1. If `coords` is
+a list and `nblocks` is omitted, it is inferred from `length(coords)`.}
 
 \item{sigma_within}{The bandwidth of the within-block smoother. Default is 5.}
 
@@ -52,3 +53,9 @@ This function creates a sparse matrix of spatial constraints for a set of data b
 The function computes within-block and between-block constraints based on the provided coordinates, bandwidths, and other input parameters. It then balances the within-block and between-block constraints using a shrinkage factor, and normalizes the resulting matrix by the first eigenvalue.
 }
 
+\examples{
+coords <- as.matrix(expand.grid(1:2, 1:2))
+S <- spatial_constraints(coords, nblocks=1, sigma_within=1, nnk_within=3)
+dim(S)
+
+}

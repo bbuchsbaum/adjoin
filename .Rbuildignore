@@ -11,3 +11,13 @@
 ^dlpge$
 ^test_data$
 ^AGENTS\.md$
+^\.planning$
+^scripts$
+^\.omc$
+^cran-comments\.md$
+^vignettes/neighborweights\.Rmd$
+^vignettes/affinity\.Rmd$
+^\.rcmdcheck_result\.rds$
+^\.covr_result\.rds$
+^figure$
+^.*\.Rcheck$

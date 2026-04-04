@@ -9,36 +9,37 @@
 #'
 #' @return A sparse symmetric matrix representing the computed temporal autocorrelation
 #'
+#' @importFrom Matrix bandSparse
+#'
 #' @examples
-#' # Create an example matrix
 #' X <- matrix(rnorm(50), nrow = 10, ncol = 5)
 #'
-#' # Compute the temporal autocorrelation
 #' result <- temporal_autocor(X, window = 2)
 #'
 #' @export
 temporal_autocor <- function(X, window=3, inverse=FALSE) {
-  assertthat::assert_that(window > 1 && window < ncol(X))
+  assertthat::assert_that(window >= 1 && window < ncol(X))
   cmat <- cor(X)
   if (inverse) {
+    if (!requireNamespace("corpcor", quietly = TRUE)) stop("Package 'corpcor' is required for inverse=TRUE. Install with install.packages('corpcor')")
     cmat <- corpcor::invcor.shrink(cmat)
   }
 
-  rowmat <- matrix(rep(1:nrow(cmat), ncol(cmat)), nrow(cmat), ncol(cmat))
-  colmat <- matrix(rep(1:ncol(cmat), each=nrow(cmat)), nrow(cmat), ncol(cmat))
-  delta <- abs(rowmat - colmat)
+  n <- ncol(cmat)
 
-  cvals <- sapply(1:window, function(i) {
-    ind <- which(delta == i)
-    mean(cmat[ind])
-  })
+  # Efficiently compute mean correlation at each lag
 
-  bmat <- matrix(unlist(cvals), nrow(cmat), length(cvals), byrow=TRUE)
+  # Extract k-th super-diagonal using matrix indexing (O(n) per lag)
+  cvals <- vapply(seq_len(window), function(k) {
+    idx <- cbind(seq_len(n - k), seq_len(n - k) + k)
+    mean(cmat[idx])
+  }, numeric(1))
+
+  # bandSparse expects a list/data.frame of diagonals, each replicated n times
+  bmat <- matrix(cvals, nrow = n, ncol = window, byrow = TRUE)
   bLis <- as.data.frame(bmat)
-  A <- bandSparse(nrow(cmat), k = 1:window, diagonals = bLis, symmetric=TRUE)
+  A <- bandSparse(n, k = seq_len(window), diagonals = bLis, symmetric = TRUE)
   A
-
-  #fill cmat as distance matrix()
 }
 
 
@@ -54,11 +55,11 @@ temporal_autocor <- function(X, window=3, inverse=FALSE) {
 #'
 #' @return A sparse symmetric matrix representing the computed temporal adjacency
 #'
+#' @importFrom Matrix sparseMatrix
+#'
 #' @examples
-#' # Create an example time series
 #' time <- 1:10
 #'
-#' # Compute the temporal adjacency matrix using the heat weight mode
 #' result <- temporal_adjacency(time, weight_mode = "heat", sigma = 1, window = 2)
 #'
 #' @export
@@ -67,47 +68,31 @@ temporal_adjacency <- function(time, weight_mode = c("heat", "binary"), sigma=1,
   len <- length(time)
 
   wfun <- if (weight_mode == "binary") {
-    function(x) 1
-  } else if (weight_mode == "heat") {
-    function(x) heat_kernel(x, sigma)
+    function(x) rep(1, length(x))
   } else {
-    stop()
+    function(x) heat_kernel(x, sigma)
   }
 
-  f <- function(t) {
-    if (length(t) >= 1) {
-      h <- wfun(sqrt((t[1] - t)^2))
-      cbind(t[1], t, h)
-    } else {
-      NULL
-    }
-  }
+  # Pre-allocate list for efficiency (avoid growing matrix in loop)
+  results <- vector("list", len)
 
-  # Simple sliding window implementation since runner package is not available
-  m <- NULL
-  for (i in seq_along(time)) {
-    end_idx <- min(i + window - 1, length(time))
+  for (i in seq_len(len)) {
+    end_idx <- min(i + window - 1, len)
+    # Get time values in the window
     t_window <- time[i:end_idx]
-    result <- f(t_window)
-    if (!is.null(result)) {
-      m <- rbind(m, result)
-    }
+    # Compute distances from first element
+    dists <- abs(t_window[1] - t_window)
+    # Compute weights
+    weights <- wfun(dists)
+    # Store row indices, column indices, and weights
+    results[[i]] <- cbind(i, i:end_idx, weights)
   }
 
-  # m <- do.call(rbind, rollApply(time, window=window, function(t) {
-  #   if (length(t) >= 1) {
-  #     h <- wfun(sqrt((t[1] - t)^2))
-  #     cbind(t[1], t, h)
-  #   } else {
-  #     NULL
-  #   }
-  # }))
+  m <- do.call(rbind, results)
 
-  sm <- sparseMatrix(i=m[,1], j=m[,2], x=m[,3], dims=c(len, len))
-  sm <- (sm + t(sm))
-  diag(sm) <- 1
+  sm <- sparseMatrix(i = m[, 1], j = m[, 2], x = m[, 3], dims = c(len, len))
+  sm <- Matrix::forceSymmetric(sm)
   sm
-
 }
 
 #' Compute the temporal Laplacian matrix of a time series
@@ -122,16 +107,16 @@ temporal_adjacency <- function(time, weight_mode = c("heat", "binary"), sigma=1,
 #'
 #' @return A sparse symmetric matrix representing the computed temporal Laplacian
 #'
+#' @importFrom Matrix Diagonal
+#'
 #' @examples
-#' # Create an example time series
 #' time <- 1:10
 #'
-#' # Compute the temporal Laplacian matrix using the heat weight mode
 #' result <- temporal_laplacian(time, weight_mode = "heat", sigma = 1, window = 2)
 #'
 #' @export
 temporal_laplacian <- function(time, weight_mode = c("heat", "binary"), sigma=1, window=2) {
   weight_mode <- match.arg(weight_mode)
   adj <- temporal_adjacency(time, weight_mode, sigma, window)
-  Diagonal(x=rowSums(adj))  - adj
+  Diagonal(x = rowSums(adj)) - adj
 }

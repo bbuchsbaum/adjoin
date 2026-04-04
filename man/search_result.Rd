@@ -17,3 +17,9 @@ An object with the class "nn_search".
 \description{
 Search result for nearest neighbor search
 }
+\examples{
+res <- list(idx = matrix(c(1L,2L), nrow=1),
+            dist = matrix(c(0.1,0.2), nrow=1))
+dummy <- nnsearcher(matrix(rnorm(4), nrow=2))
+search_result(dummy, res)
+}

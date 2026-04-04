@@ -23,3 +23,13 @@ This function computes a pairwise adjacency matrix for multiple graphs with a gi
 and feature vectors. The function takes two user-defined functions to compute within-graph and between-graph
 similarity measures.
 }
+\examples{
+coords <- list(matrix(c(0,0,1,0), ncol=2, byrow=TRUE),
+               matrix(c(0,1,1,1), ncol=2, byrow=TRUE))
+feats  <- list(matrix(rnorm(2), ncol=1),
+               matrix(rnorm(2), ncol=1))
+fself <- function(c,f) spatial_adjacency(c, normalized=FALSE, include_diagonal=FALSE)
+fbetween <- function(c1,c2,f1,f2) cross_spatial_adjacency(c1,c2, normalized=FALSE)
+M <- pairwise_adjacency(coords, feats, fself, fbetween)
+dim(M)
+}

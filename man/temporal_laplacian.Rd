@@ -28,10 +28,8 @@ This function computes the temporal Laplacian matrix of a given time series usin
 sigma, and window size.
 }
 \examples{
-# Create an example time series
 time <- 1:10
 
-# Compute the temporal Laplacian matrix using the heat weight mode
 result <- temporal_laplacian(time, weight_mode = "heat", sigma = 1, window = 2)
 
 }

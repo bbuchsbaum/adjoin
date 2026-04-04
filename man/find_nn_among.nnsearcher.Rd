@@ -21,3 +21,11 @@ An object of class "nn_search" containing indices, distances, and labels.
 \description{
 Search for the k nearest neighbors within a specified subset of points.
 }
+\examples{
+\donttest{
+X <- matrix(rnorm(20), nrow=5)
+searcher <- nnsearcher(X)
+find_nn_among(searcher, k=2, idx=1:3)
+}
+
+}

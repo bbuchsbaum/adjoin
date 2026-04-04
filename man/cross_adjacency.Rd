@@ -10,7 +10,10 @@ cross_adjacency(
   k = 5,
   FUN = heat_kernel,
   type = c("normal", "mutual", "asym"),
-  as = c("igraph", "sparse", "index_sim")
+  as = c("igraph", "sparse", "index_sim"),
+  backend = c("nanoflann", "hnsw"),
+  M = 16,
+  ef = 200
 )
 }
 \arguments{
@@ -25,6 +28,11 @@ cross_adjacency(
 \item{type}{A character string indicating the type of adjacency to compute. One of "normal", "mutual", or "asym" (default: "normal").}
 
 \item{as}{A character string indicating the format of the output. One of "igraph", "sparse", or "index_sim" (default: "igraph").}
+
+\item{backend}{Nearest-neighbor backend. `"nanoflann"` uses exact Euclidean
+search; `"hnsw"` uses approximate search via `RcppHNSW`.}
+
+\item{M, ef}{HNSW tuning parameters used only when `backend="hnsw"`.}
 }
 \value{
 If 'as' is "index_sim", a two-column matrix where the first column contains the indices of nearest neighbors and the second column contains the corresponding kernel values.
@@ -34,4 +42,14 @@ If 'as' is "index_sim", a two-column matrix where the first column contains the 
 \description{
 This function computes the cross adjacency matrix or graph between two sets of points
 based on their k-nearest neighbors and a kernel function applied to their distances.
+}
+\details{
+Distances passed to `FUN` are Euclidean distances. With `backend="hnsw"`,
+squared L2 distances from `RcppHNSW` are converted back to Euclidean
+distances before weighting.
+}
+\examples{
+X <- matrix(rnorm(6), ncol=2)
+Y <- matrix(rnorm(8), ncol=2)
+cross_adjacency(X, Y, k=1, as="sparse")
 }

@@ -19,3 +19,10 @@ An object representing the within-class neighbors of the input graph, the struct
 \description{
 A generic function to compute the within-class neighbors of a graph.
 }
+\examples{
+labs <- factor(c("a","a","b"))
+cg <- class_graph(labs)
+ng <- neighbor_graph(diag(3))
+within_class_neighbors(cg, ng)
+
+}

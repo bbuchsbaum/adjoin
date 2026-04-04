@@ -1,4 +1,4 @@
-// [[Rcpp::plugins(cpp11)]]
+#include "clang_compat.h"
 #include <RcppArmadillo.h>
 #include <vector>
 #include <utility> // For std::pair
@@ -8,6 +8,21 @@
 #include <numeric> // For std::iota
 
 using namespace Rcpp;
+
+// Triplet holder for sparse output
+struct WeightTriplet {
+    double i, j, weight;
+};
+
+// utility: sum neighbor counts for reserve sizing
+inline std::size_t total_neighbors(const List& indices) {
+  std::size_t total = 0;
+  int n = indices.size();
+  for (int i = 0; i < n; ++i) {
+    total += Rf_length(indices[i]);
+  }
+  return total;
+}
 
 // This is a simple example of exporting a C++ function to R. You can
 // source this function into an R session using the Rcpp::sourceCpp
@@ -19,12 +34,6 @@ using namespace Rcpp;
 //   http://gallery.rcpp.org/
 //
 
-//
-//double heat_kernel(NumericVector x1, NumericVector x2, double sigma) {
-//  double dist = sqrt(sum(pow((x1-x2),2)));
-//  return exp(-dist / (2*(pow(sigma,2))));
-//}
-
 // Optimized distance_heat
 inline NumericVector distance_heat(NumericVector dist, double sigma) {
   int n = dist.size();
@@ -34,7 +43,8 @@ inline NumericVector distance_heat(NumericVector dist, double sigma) {
       stop("sigma cannot be zero in distance_heat");
   }
   for (int i = 0; i < n; ++i) {
-    out[i] = std::exp(-dist[i] / denom);
+    double d = dist[i];
+    out[i] = std::exp(-(d * d) / denom); // standard Gaussian RBF on Euclidean distance
   }
   return out;
 }
@@ -43,39 +53,38 @@ inline NumericVector distance_heat(NumericVector dist, double sigma) {
 inline double norm_heat_kernel(const NumericVector& x1, const NumericVector& x2, double fsigma) {
   int len = x1.size();
   if (len != x2.size() || len == 0) {
-      stop("Vectors must have the same non-zero length in norm_heat_kernel");
+      stop("Vectors must have the same non-zero length in norm_heat_kernel (got %d vs %d)", len, x2.size());
   }
   double dist_sq = 0.0;
   for (int i = 0; i < len; ++i) {
     double diff = x1[i] - x2[i];
     dist_sq += diff * diff;
   }
-  // Note: Original formula had dist = sqrt(sum(pow(...))/(2*len)).
-  // Here we implement sqrt(dist_sq / (2.0 * len))
-  double norm_dist = std::sqrt(dist_sq / (2.0 * len));
+  // Match R normalized_heat_kernel: exp(-(dist^2/(2*len)) / (2*fsigma^2))
+  double norm_dist = dist_sq / (2.0 * len);
   double denom = 2.0 * fsigma * fsigma;
-   if (denom == 0) { // Avoid division by zero
-      stop("fsigma cannot be zero in norm_heat_kernel");
+  if (denom == 0) { // Avoid division by zero
+     stop("fsigma cannot be zero in norm_heat_kernel");
   }
   return std::exp(-norm_dist / denom);
 }
 
-// [[Rcpp::export]]
-NumericMatrix expand_similarity_cpp(IntegerVector indices, NumericMatrix simmat, double thresh) {
+// [[Rcpp::export(rng = false)]]
+NumericMatrix expand_similarity_cpp(const IntegerVector& indices, const NumericMatrix& simmat, double thresh) {
   int n = indices.size();
   int N_sim = simmat.nrow();
-  std::vector<std::vector<double>> triplets;
+  int M_sim = simmat.ncol();
+  std::vector<WeightTriplet> triplets;
+  triplets.reserve(n * std::min(N_sim, 10)); // heuristic
 
   for (int i = 0; i < n; ++i) {
+    if (i % 1000 == 0) R_CheckUserInterrupt();
     int r = indices[i] - 1; // Convert to 0-based index
     if (r < 0 || r >= N_sim) continue; // Bounds check
 
     for (int j = 0; j <= i; ++j) { // Iterate only lower triangle including diagonal
       int c = indices[j] - 1; // Convert to 0-based index
-      if (c < 0 || c >= N_sim) continue; // Bounds check
-
-      // Ensure we access within matrix bounds if simmat isn't square or fully populated
-      if (r >= simmat.nrow() || c >= simmat.ncol()) continue;
+      if (c < 0 || c >= N_sim || c >= M_sim || r >= M_sim) continue; // Bounds check
 
       if (simmat(r, c) > thresh) {
         triplets.push_back({(double)(i + 1), (double)(j + 1), simmat(r, c)}); // Store 1-based indices
@@ -86,30 +95,30 @@ NumericMatrix expand_similarity_cpp(IntegerVector indices, NumericMatrix simmat,
   int m = triplets.size();
   NumericMatrix out(m, 3);
   for (int i = 0; i < m; ++i) {
-    out(i, 0) = triplets[i][0];
-    out(i, 1) = triplets[i][1];
-    out(i, 2) = triplets[i][2];
+    out(i, 0) = triplets[i].i;
+    out(i, 1) = triplets[i].j;
+    out(i, 2) = triplets[i].weight;
   }
 
   return out;
 }
 
-// [[Rcpp::export]]
-NumericMatrix expand_similarity_below_cpp(IntegerVector indices, NumericMatrix simmat, double thresh) {
+// [[Rcpp::export(rng = false)]]
+NumericMatrix expand_similarity_below_cpp(const IntegerVector& indices, const NumericMatrix& simmat, double thresh) {
   int n = indices.size();
   int N_sim = simmat.nrow();
-  std::vector<std::vector<double>> triplets;
+  int M_sim = simmat.ncol();
+  std::vector<WeightTriplet> triplets;
+  triplets.reserve(n * std::min(N_sim, 10));
 
   for (int i = 0; i < n; ++i) {
+    if (i % 1000 == 0) R_CheckUserInterrupt();
     int r = indices[i] - 1; // Convert to 0-based index
     if (r < 0 || r >= N_sim) continue; // Bounds check
 
     for (int j = 0; j <= i; ++j) { // Iterate only lower triangle including diagonal
       int c = indices[j] - 1; // Convert to 0-based index
-      if (c < 0 || c >= N_sim) continue; // Bounds check
-
-       // Ensure we access within matrix bounds if simmat isn't square or fully populated
-      if (r >= simmat.nrow() || c >= simmat.ncol()) continue;
+      if (c < 0 || c >= N_sim || c >= M_sim || r >= M_sim) continue; // Bounds check
 
       if (simmat(r, c) < thresh) { // Changed condition to '<'
         triplets.push_back({(double)(i + 1), (double)(j + 1), simmat(r, c)}); // Store 1-based indices
@@ -120,44 +129,20 @@ NumericMatrix expand_similarity_below_cpp(IntegerVector indices, NumericMatrix s
   int m = triplets.size();
   NumericMatrix out(m, 3);
   for (int i = 0; i < m; ++i) {
-    out(i, 0) = triplets[i][0];
-    out(i, 1) = triplets[i][1];
-    out(i, 2) = triplets[i][2];
+    out(i, 0) = triplets[i].i;
+    out(i, 1) = triplets[i].j;
+    out(i, 2) = triplets[i].weight;
   }
 
   return out;
 }
 
 
-// Fixed order_vec using std::sort
-// [[Rcpp::export]]
-IntegerVector order_vec(NumericVector x) {
-  int n = x.size();
-  // Create vector of pairs (value, original_index)
-  std::vector<std::pair<double, int>> val_idx(n);
-  for (int i = 0; i < n; ++i) {
-    val_idx[i] = std::make_pair(x[i], i);
-  }
+// order_vec was duplicative of R's order(); remove export to reduce maintenance.
 
-  // Sort based on values (first element of pair)
-  std::sort(val_idx.begin(), val_idx.end());
-
-  // Extract the sorted original indices
-  IntegerVector out(n);
-  for (int i = 0; i < n; ++i) {
-    out[i] = val_idx[i].second + 1; // Return 1-based indices
-  }
-  return out;
-}
-
-// Structure to hold triplet data
-struct WeightTriplet {
-    double i, j, weight;
-};
-
-// [[Rcpp::export]]
-NumericMatrix cross_fspatial_weights(List indices, List distances, NumericMatrix feature_mat1,
-                                     NumericMatrix feature_mat2,
+// [[Rcpp::export(rng = false)]]
+NumericMatrix cross_fspatial_weights(const List& indices, const List& distances, const NumericMatrix& feature_mat1,
+                                     const NumericMatrix& feature_mat2,
                                      double sigma,
                                      double fsigma, double alpha,
                                      int maxk,
@@ -170,23 +155,25 @@ NumericMatrix cross_fspatial_weights(List indices, List distances, NumericMatrix
 
   // Use std::vector to store results temporarily
   std::vector<WeightTriplet> triplets;
-  // Reserve space based on expectation (nels was used before)
-  // A rough guess might be n * avg_neighbors (e.g., n * maxk if maxk is small)
-  // Or start smaller and let it grow.
-  triplets.reserve(n * (maxk > 0 ? maxk : 10)); // Example reservation
+  std::size_t expected = total_neighbors(indices);
+  if (maxk > 0 && maxk < Rf_length(indices[0])) {
+    expected = std::min<std::size_t>(expected, (std::size_t) n * maxk);
+  }
+  triplets.reserve(std::max<std::size_t>(expected, 16));
 
   double alpha2 = 1.0 - alpha;
   int N_feat2 = feature_mat2.nrow();
 
   for (int i = 0; i < n; ++i) {
-    IntegerVector ind = Rcpp::as<IntegerVector>(indices[i]);
-    NumericVector dist = Rcpp::as<NumericVector>(distances[i]);
+    if (i % 1000 == 0) R_CheckUserInterrupt();
+    IntegerVector ind = indices[i];
+    NumericVector dist = distances[i];
     int k_neighbors = ind.size();
 
     if (k_neighbors == 0 || k_neighbors != dist.size()) continue; // Skip if no neighbors or mismatched sizes
 
     NumericVector spatial_vals = binary ? NumericVector(k_neighbors, 1.0) : distance_heat(dist, sigma);
-    NumericVector f1 = feature_mat1(i, _);
+    NumericVector f1 = feature_mat1.row(i);
 
     std::vector<std::pair<double, int>> neighbor_data; // Store {combined_value, original_index_in_ind}
     if (maxk > 0 && maxk < k_neighbors) {
@@ -199,7 +186,7 @@ NumericMatrix cross_fspatial_weights(List indices, List distances, NumericMatrix
       // Bounds check for feature_mat2
       if (neighbor_idx < 0 || neighbor_idx >= N_feat2) continue;
 
-      NumericVector f2 = feature_mat2(neighbor_idx, _);
+      NumericVector f2 = feature_mat2.row(neighbor_idx);
       double feature_sim = norm_heat_kernel(f1, f2, fsigma);
       double combined_val = alpha * spatial_vals[j] + alpha2 * feature_sim;
 
@@ -239,8 +226,8 @@ NumericMatrix cross_fspatial_weights(List indices, List distances, NumericMatrix
 }
 
 
-// [[Rcpp::export]]
-NumericMatrix bilateral_weights(List indices, List distances, NumericMatrix feature_mat,
+// [[Rcpp::export(rng = false)]]
+NumericMatrix bilateral_weights(const List& indices, const List& distances, const NumericMatrix& feature_mat,
                                 double sigma, double fsigma) {
   int n = indices.size();
   if (n != feature_mat.nrow()) {
@@ -249,18 +236,19 @@ NumericMatrix bilateral_weights(List indices, List distances, NumericMatrix feat
   int N_feat = feature_mat.nrow();
 
   std::vector<WeightTriplet> triplets;
-  // Guess initial size - can adjust
-  triplets.reserve(n * 10); 
+  std::size_t expected = total_neighbors(indices);
+  triplets.reserve(std::max<std::size_t>(expected, 16));
 
   for (int i = 0; i < n; ++i) {
-    IntegerVector ind = Rcpp::as<IntegerVector>(indices[i]);
-    NumericVector dist = Rcpp::as<NumericVector>(distances[i]);
+    if (i % 1000 == 0) R_CheckUserInterrupt();
+    IntegerVector ind = indices[i];
+    NumericVector dist = distances[i];
     int k_neighbors = ind.size();
 
     if (k_neighbors == 0 || k_neighbors != dist.size()) continue;
 
     NumericVector spatial_vals = distance_heat(dist, sigma);
-    NumericVector f1 = feature_mat(i, _);
+    NumericVector f1 = feature_mat.row(i);
 
     for (int j = 0; j < k_neighbors; ++j) {
       int neighbor_idx = ind[j] - 1; // 0-based index
@@ -268,7 +256,7 @@ NumericMatrix bilateral_weights(List indices, List distances, NumericMatrix feat
       // Bounds check
       if (neighbor_idx < 0 || neighbor_idx >= N_feat) continue;
 
-      NumericVector f2 = feature_mat(neighbor_idx, _);
+      NumericVector f2 = feature_mat.row(neighbor_idx);
       double feature_sim = norm_heat_kernel(f1, f2, fsigma);
       double final_weight = spatial_vals[j] * feature_sim;
 
@@ -292,8 +280,8 @@ NumericMatrix bilateral_weights(List indices, List distances, NumericMatrix feat
 }
 
 
-// [[Rcpp::export]]
-NumericMatrix fspatial_weights(List indices, List distances, NumericMatrix feature_mat,
+// [[Rcpp::export(rng = false)]]
+NumericMatrix fspatial_weights(const List& indices, const List& distances, const NumericMatrix& feature_mat,
                                double sigma, double fsigma, double alpha, bool binary) {
   int n = indices.size();
    if (n != feature_mat.nrow()) {
@@ -302,19 +290,21 @@ NumericMatrix fspatial_weights(List indices, List distances, NumericMatrix featu
   int N_feat = feature_mat.nrow();
 
   std::vector<WeightTriplet> triplets;
-  triplets.reserve(n * 10); 
+  std::size_t expected = total_neighbors(indices);
+  triplets.reserve(std::max<std::size_t>(expected, 16));
 
   double alpha2 = 1.0 - alpha;
 
   for (int i = 0; i < n; ++i) {
-    IntegerVector ind = Rcpp::as<IntegerVector>(indices[i]);
-    NumericVector dist = Rcpp::as<NumericVector>(distances[i]);
+    if (i % 1000 == 0) R_CheckUserInterrupt();
+    IntegerVector ind = indices[i];
+    NumericVector dist = distances[i];
     int k_neighbors = ind.size();
 
     if (k_neighbors == 0 || k_neighbors != dist.size()) continue;
 
     NumericVector spatial_vals = binary ? NumericVector(k_neighbors, 1.0) : distance_heat(dist, sigma);
-    NumericVector f1 = feature_mat(i, _);
+    NumericVector f1 = feature_mat.row(i);
 
     for (int j = 0; j < k_neighbors; ++j) {
       int neighbor_idx = ind[j] - 1; // 0-based index
@@ -322,7 +312,7 @@ NumericMatrix fspatial_weights(List indices, List distances, NumericMatrix featu
       // Bounds check
       if (neighbor_idx < 0 || neighbor_idx >= N_feat) continue;
 
-      NumericVector f2 = feature_mat(neighbor_idx, _);
+      NumericVector f2 = feature_mat.row(neighbor_idx);
       double feature_sim = norm_heat_kernel(f1, f2, fsigma);
       double final_weight = alpha * spatial_vals[j] + alpha2 * feature_sim;
 
@@ -345,16 +335,18 @@ NumericMatrix fspatial_weights(List indices, List distances, NumericMatrix featu
   return wout;
 }
 
-// [[Rcpp::export]]
-NumericMatrix spatial_weights(List indices, List distances, double sigma, bool binary) {
+// [[Rcpp::export(rng = false)]]
+NumericMatrix spatial_weights(const List& indices, const List& distances, double sigma, bool binary) {
   int n = indices.size();
   
   std::vector<WeightTriplet> triplets;
-  triplets.reserve(n * 10);
+  std::size_t expected = total_neighbors(indices);
+  triplets.reserve(std::max<std::size_t>(expected, 16));
 
   for (int i = 0; i < n; ++i) {
-    IntegerVector ind = Rcpp::as<IntegerVector>(indices[i]);
-    NumericVector dist = Rcpp::as<NumericVector>(distances[i]);
+    if (i % 1000 == 0) R_CheckUserInterrupt();
+    IntegerVector ind = indices[i];
+    NumericVector dist = distances[i];
     int k_neighbors = ind.size();
 
     if (k_neighbors == 0 || k_neighbors != dist.size()) continue;
@@ -383,4 +375,3 @@ NumericMatrix spatial_weights(List indices, List distances, double sigma, bool b
   }
   return wout;
 }
-

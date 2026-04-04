@@ -26,3 +26,9 @@ The modified nn_search object with distances converted to similarities.
 \description{
 Convert distance values in a nearest neighbor search result to similarity values.
 }
+\examples{
+res <- list(indices = matrix(c(1L,2L), nrow=1),
+            distances = matrix(c(0.5, 1.0), nrow=1))
+class(res) <- "nn_search"; attr(res,"len") <- 2; attr(res,"metric") <- "l2"
+dist_to_sim(res, method="heat", sigma=1)
+}

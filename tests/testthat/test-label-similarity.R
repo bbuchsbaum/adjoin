@@ -81,13 +81,13 @@ test_that("binary_label_matrix handles edge cases", {
   expect_true(all(mat_same == 1))
 })
 
-test_that("label_matrix works correctly", {
+test_that("binary_label_matrix works correctly", {
   labels1 <- c('A', 'B', 'A')
   labels2 <- c('A', 'A', 'B')
-  
-  result_same <- label_matrix(labels1, labels2, type = 's')
-  result_diff <- label_matrix(labels1, labels2, type = 'd')
-  
+
+  result_same <- binary_label_matrix(labels1, labels2, type = 's')
+  result_diff <- binary_label_matrix(labels1, labels2, type = 'd')
+
   expect_true(inherits(result_same, "Matrix"))
   expect_true(inherits(result_diff, "Matrix"))
   expect_equal(dim(result_same), c(3, 3))

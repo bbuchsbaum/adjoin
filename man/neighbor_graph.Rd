@@ -37,12 +37,10 @@ A generic function to create a neighbor_graph object.
 Create a neighbor_graph object from an igraph object or Matrix object.
 }
 \examples{
-# Create from igraph
 library(igraph)
 g <- make_ring(5)
 ng1 <- neighbor_graph(g)
 
-# Create from Matrix
 adj_matrix <- Matrix::Matrix(c(0, 1, 1, 0, 1, 0, 1, 0, 0), 
                             nrow = 3, byrow = TRUE, sparse = TRUE)
 ng2 <- neighbor_graph(adj_matrix)

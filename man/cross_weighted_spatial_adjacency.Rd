@@ -44,6 +44,9 @@ cross_weighted_spatial_adjacency(
 
 \item{normalized}{whether to normalize the rows to sum to 1}
 }
+\value{
+A sparse cross-graph adjacency matrix of feature-weighted spatial similarities.
+}
 \description{
 Cross-adjacency matrix with feature weighting
 }

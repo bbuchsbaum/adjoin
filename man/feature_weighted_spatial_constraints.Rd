@@ -71,14 +71,21 @@ The function computes within-block and between-block constraints based on the pr
 }
 
 \examples{
-coords <- as.matrix(expand.grid(1:10, 1:10))
-fmats <- replicate(20, matrix(rnorm(100*10), 10, 100), simplify=FALSE)
-conmat <- feature_weighted_spatial_constraints(coords, fmats)
+set.seed(123)
+coords <- as.matrix(expand.grid(1:4, 1:4))
+fmats <- replicate(3, matrix(rnorm(16 * 4), 4, 16), simplify = FALSE)
+conmat <- feature_weighted_spatial_constraints(
+  coords, fmats,
+  sigma_within = 1.5, sigma_between = 1.5,
+  nnk_within = 4, nnk_between = 4,
+  maxk_within = 3, maxk_between = 2
+)
 
-conmat <- feature_weighted_spatial_constraints(coords, fmats, 
-                                             maxk_between=4, 
-                                             maxk_within=2,
-                                             sigma_between=5, 
-                                             nnk_between=60)
+conmat <- feature_weighted_spatial_constraints(
+  coords, fmats,
+  alpha_within = 0.3, alpha_between = 0.7,
+  maxk_between = 2, maxk_within = 2,
+  sigma_between = 2, nnk_between = 4
+)
 
 }

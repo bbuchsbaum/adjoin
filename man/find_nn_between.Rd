@@ -17,3 +17,10 @@ A nearest neighbors result object.
 \description{
 Find nearest neighbors between two sets of data points
 }
+\examples{
+\donttest{
+X <- matrix(rnorm(20), nrow=5)
+nn <- nnsearcher(X)
+find_nn_between(nn, k=1, idx1=1:2, idx2=3:5)
+}
+}

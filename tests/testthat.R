@@ -1,4 +1,4 @@
 library(testthat)
-library(neighborweights)
+library(adjoin)
 
-test_check("neighborweights")
+test_check("adjoin")
