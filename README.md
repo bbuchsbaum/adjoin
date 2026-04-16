@@ -1,11 +1,11 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# neighborweights
+# adjoin
 
 ## Overview
 
-The `neighborweights` package provides a collection of functions for
+The `adjoin` package provides a collection of functions for
 constructing adjacency matrices based on spatial and feature-based
 similarity between data points. It enables users to analyze and
 visualize complex data relationships by creating spatial and
@@ -13,11 +13,11 @@ feature-weighted adjacency matrices using various methods.
 
 ## Installation
 
-You can install the `neighborweights` package from GitHub with:
+You can install the `adjoin` package from GitHub with:
 
 ``` r
 # install.packages("devtools")
-devtools::install_github("bbuchsbaum/neighborweights")
+devtools::install_github("bbuchsbaum/adjoin")
 ```
 
 ## Usage
@@ -26,7 +26,7 @@ Here’s a basic example demonstrating how to create a spatial adjacency
 matrix using the spatial_adjacency function:
 
 ``` r
-library(neighborweights)
+library(adjoin)
 
 # Generate random coordinates
 coord_mat <- matrix(runif(20), nrow=10, ncol=2)

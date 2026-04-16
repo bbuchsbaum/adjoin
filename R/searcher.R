@@ -1,8 +1,9 @@
 #' Nearest Neighbor Searcher
 #'
 #' Create a nearest neighbor searcher object for efficient nearest neighbor search.
-#' Uses Rnanoflann (exact Euclidean search) by default, or RcppHNSW (approximate search
-#' with cosine/inner-product support) when those distance metrics are requested.
+#' Uses `Rnanoflann` for exact Euclidean search by default. Uses `RcppHNSW`
+#' for approximate search only when cosine or inner-product distances are
+#' requested.
 #'
 #' @param X A numeric matrix where each row represents a data point.
 #' @param labels A vector of labels corresponding to each row in X. Defaults to row indices.
@@ -10,7 +11,8 @@
 #' @param distance The distance metric to use. One of "l2", "euclidean", "cosine", or "ip".
 #'   Note: "cosine" and "ip" require the RcppHNSW package.
 #' @param M The maximum number of connections for HNSW (only used with cosine/ip).
-#' @param ef The size of the dynamic candidate list for HNSW (only used with cosine/ip).
+#' @param ef The size of the dynamic candidate list for HNSW (only used with
+#'   cosine/ip). Larger values usually improve recall at the cost of runtime.
 #'
 #' @return An object of class "nnsearcher" containing the data matrix, labels,
 #'   search index, and search parameters.
@@ -197,9 +199,9 @@ find_nn.nnsearcher <- function(x, query=NULL, k=5, ...) {
   if (x$backend == "hnsw") {
     ret <- if (!is.null(query)) {
       chk_matrix(query)
-      RcppHNSW::hnsw_search(query, x$ann, k = k)
+      RcppHNSW::hnsw_search(query, x$ann, k = k, ef = x$ef)
     } else {
-      RcppHNSW::hnsw_search(x$X, x$ann, k = k)
+      RcppHNSW::hnsw_search(x$X, x$ann, k = k, ef = x$ef)
     }
   } else {
     # nanoflann backend
@@ -245,7 +247,7 @@ find_nn_among.nnsearcher <- function(x, k=5, idx, ...) {
 
   if (x$backend == "hnsw") {
     ann <- RcppHNSW::hnsw_build(X1, x$distance, M=x$M, ef=x$ef)
-    nnres <- RcppHNSW::hnsw_search(X1, ann, k=k)
+    nnres <- RcppHNSW::hnsw_search(X1, ann, k=k, ef=x$ef)
   } else {
     nn_result <- Rnanoflann::nn(data = X1, points = X1, k = k)
     nnres <- list(idx = nn_result$indices, dist = nn_result$distances)
@@ -322,7 +324,7 @@ find_nn_between.nnsearcher <- function(x, k=5, idx1, idx2, restricted=FALSE, ...
 
     if (x$backend == "hnsw") {
       ann <- RcppHNSW::hnsw_build(X1, x$distance, M=x$M, ef=x$ef)
-      nnres <- RcppHNSW::hnsw_search(X2, ann, k=k)
+      nnres <- RcppHNSW::hnsw_search(X2, ann, k=k, ef=x$ef)
     } else {
       nn_result <- Rnanoflann::nn(data = X1, points = X2, k = k)
       nnres <- list(idx = nn_result$indices, dist = nn_result$distances)

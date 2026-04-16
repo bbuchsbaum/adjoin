@@ -3,7 +3,14 @@ Title: Constructing Adjacency Matrices Based on Spatial and Feature Similarity
 Version: 0.1.0
 Authors@R: person("Bradley R.", "Buchsbaum", email = "brad.buchsbaum@gmail.com",
     role = c("aut", "cre"), comment = c(ORCID = "0000-0002-1108-4866"))
-Description: A collection of functions for constructing adjacency matrices based on spatial and feature-based similarity between data points. The package provides various methods to create spatial and feature-weighted adjacency matrices, enabling users to analyze and visualize complex data relationships.
+Description: Constructs sparse adjacency matrices from spatial coordinates,
+    feature measurements, class labels, and temporal indices. Supports
+    nearest-neighbor graphs, heat-kernel weights, graph Laplacians, diffusion
+    operators, and bilateral smoothers for graph-based data analysis, following
+    spectral graph methods in von Luxburg (2007)
+    <doi:10.1007/s11222-007-9033-z>, diffusion maps in Coifman and Lafon (2006)
+    <doi:10.1016/j.acha.2006.04.006>, and bilateral filtering in Tomasi and
+    Manduchi (1998) <doi:10.1109/ICCV.1998.710815>.
 Depends:
     R (>= 4.0.0)
 License: MIT + file LICENSE
@@ -28,7 +35,7 @@ Imports:
     corpcor
 Suggests:
     testthat (>= 3.0.0),
-    RcppHNSW (>= 0.3.0.9001),
+    RcppHNSW (>= 0.6.0),
     knitr,
     rmarkdown,
     furrr,

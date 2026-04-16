@@ -30,7 +30,8 @@ weighted_knn(
 \item{backend}{Nearest-neighbor backend. `"nanoflann"` uses exact Euclidean
 search; `"hnsw"` uses approximate search via `RcppHNSW`.}
 
-\item{M, ef}{HNSW tuning parameters used only when `backend="hnsw"`.}
+\item{M, ef}{HNSW tuning parameters used only when `backend = "hnsw"`.
+Larger `ef` usually improves recall at the cost of runtime.}
 
 \item{...}{Additional arguments passed to the nearest neighbor search function (Rnanoflann::nn).}
 }
@@ -44,9 +45,10 @@ The function takes into account the Euclidean distance between instances and app
 to convert the distances into similarities.
 }
 \details{
-Distances passed to `FUN` are Euclidean distances. With `backend="hnsw"`,
-squared L2 distances from `RcppHNSW` are converted back to Euclidean
-distances before weighting.
+Distances passed to `FUN` are Euclidean distances. The default
+`backend = "nanoflann"` uses exact Euclidean search. Set `backend = "hnsw"`
+to opt in to approximate search via `RcppHNSW`; squared L2 distances from
+`RcppHNSW` are converted back to Euclidean distances before weighting.
 }
 \examples{
 X <- matrix(rnorm(10 * 10), 10, 10)

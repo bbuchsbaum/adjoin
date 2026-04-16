@@ -32,7 +32,8 @@ cross_adjacency(
 \item{backend}{Nearest-neighbor backend. `"nanoflann"` uses exact Euclidean
 search; `"hnsw"` uses approximate search via `RcppHNSW`.}
 
-\item{M, ef}{HNSW tuning parameters used only when `backend="hnsw"`.}
+\item{M, ef}{HNSW tuning parameters used only when `backend = "hnsw"`.
+Larger `ef` usually improves recall at the cost of runtime.}
 }
 \value{
 If 'as' is "index_sim", a two-column matrix where the first column contains the indices of nearest neighbors and the second column contains the corresponding kernel values.
@@ -44,9 +45,10 @@ This function computes the cross adjacency matrix or graph between two sets of p
 based on their k-nearest neighbors and a kernel function applied to their distances.
 }
 \details{
-Distances passed to `FUN` are Euclidean distances. With `backend="hnsw"`,
-squared L2 distances from `RcppHNSW` are converted back to Euclidean
-distances before weighting.
+Distances passed to `FUN` are Euclidean distances. The default
+`backend = "nanoflann"` uses exact Euclidean search. Set `backend = "hnsw"`
+to opt in to approximate search via `RcppHNSW`; squared L2 distances from
+`RcppHNSW` are converted back to Euclidean distances before weighting.
 }
 \examples{
 X <- matrix(rnorm(6), ncol=2)

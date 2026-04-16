@@ -166,6 +166,16 @@ test_that("graph_weights_fast backend=auto resolves without error", {
   expect_equal(dim(W), c(15, 15))
 })
 
+test_that("graph_weights_fast defaults to exact nanoflann backend", {
+  set.seed(22)
+  X <- matrix(rnorm(60), nrow = 15)
+
+  W_default <- graph_weights_fast(X, k = 3, weight_mode = "heat")
+  W_exact <- graph_weights_fast(X, k = 3, weight_mode = "heat", backend = "nanoflann")
+
+  expect_equal(as.matrix(W_default), as.matrix(W_exact), tolerance = 1e-12)
+})
+
 # --- input validation errors ---
 
 test_that("graph_weights_fast rejects k >= n", {
@@ -184,4 +194,3 @@ test_that("graph_weights_fast rejects invalid sigma", {
   expect_error(graph_weights_fast(X, k = 4, weight_mode = "heat", sigma = -1),
                "sigma.*positive scalar")
 })
-
