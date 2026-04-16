@@ -140,15 +140,22 @@ A_binary <- spatial_adjacency(coords, sigma = 1.5, nnk = 8,
 ```
 
 ```{r weight-mode-plot, echo = FALSE, fig.cap = "Heat weights decay continuously with distance; binary weights are uniform within the neighborhood radius.", fig.width = 7, fig.height = 3}
-par(mfrow = c(1, 2), mar = c(4, 3, 2.5, 1))
+local({
+  oldpar <- par(no.readonly = TRUE)
+  tryCatch({
+    par(mfrow = c(1, 2), mar = c(4, 3, 2.5, 1))
 
-w_heat <- A_heat@x[A_heat@x > 0]
-hist(w_heat, breaks = 20, col = "#2171b5", border = "white",
-     main = "heat kernel", xlab = "edge weight", ylab = "count")
+    w_heat <- A_heat@x[A_heat@x > 0]
+    hist(w_heat, breaks = 20, col = "#2171b5", border = "white",
+         main = "heat kernel", xlab = "edge weight", ylab = "count")
 
-w_bin <- A_binary@x[A_binary@x > 0]
-hist(w_bin, breaks = 5, col = "#6baed6", border = "white",
-     main = "binary", xlab = "edge weight", ylab = "count")
+    w_bin <- A_binary@x[A_binary@x > 0]
+    hist(w_bin, breaks = 5, col = "#6baed6", border = "white",
+         main = "binary", xlab = "edge weight", ylab = "count")
+  }, finally = {
+    par(oldpar)
+  })
+})
 ```
 
 The heat kernel produces a smooth spectrum between 0 and 1; binary produces a
@@ -175,28 +182,35 @@ c(tight_edges = Matrix::nnzero(A_tight) / 2L,
 ```
 
 ```{r sigma-effect-plot, echo = FALSE, fig.cap = "Tight sigma (0.8) leaves corner and edge points with few connections; wide sigma (2.5) connects most points richly.", fig.width = 7, fig.height = 3.5}
-par(mfrow = c(1, 2), mar = c(1, 1, 2.5, 1))
+local({
+  oldpar <- par(no.readonly = TRUE)
+  tryCatch({
+    par(mfrow = c(1, 2), mar = c(1, 1, 2.5, 1))
 
-plot_graph <- function(A, coords, title) {
-  deg  <- as.numeric(Matrix::rowSums(A > 0))
-  pal  <- colorRampPalette(c("#deebf7", "#08519c"))(max(deg, 1) + 1)
-  cols <- pal[deg + 1]
-  plot(coords, pch = 16, cex = 1.3, asp = 1, axes = FALSE,
-       xlab = "", ylab = "", main = title, col = cols)
-  A_t <- as(A, "TsparseMatrix")
-  for (k in seq_along(A_t@x)) {
-    i <- A_t@i[k] + 1L
-    j <- A_t@j[k] + 1L
-    if (i < j)
-      segments(coords[i, 1], coords[i, 2],
-               coords[j, 1], coords[j, 2],
-               col = "#c6dbef", lwd = 0.8)
-  }
-  points(coords, pch = 16, cex = 1.3, col = cols)
-}
+    plot_graph <- function(A, coords, title) {
+      deg  <- as.numeric(Matrix::rowSums(A > 0))
+      pal  <- colorRampPalette(c("#deebf7", "#08519c"))(max(deg, 1) + 1)
+      cols <- pal[deg + 1]
+      plot(coords, pch = 16, cex = 1.3, asp = 1, axes = FALSE,
+           xlab = "", ylab = "", main = title, col = cols)
+      A_t <- as(A, "TsparseMatrix")
+      for (k in seq_along(A_t@x)) {
+        i <- A_t@i[k] + 1L
+        j <- A_t@j[k] + 1L
+        if (i < j)
+          segments(coords[i, 1], coords[i, 2],
+                   coords[j, 1], coords[j, 2],
+                   col = "#c6dbef", lwd = 0.8)
+      }
+      points(coords, pch = 16, cex = 1.3, col = cols)
+    }
 
-plot_graph(A_tight, coords, "sigma = 0.8  (tight)")
-plot_graph(A_wide,  coords, "sigma = 2.5  (wide)")
+    plot_graph(A_tight, coords, "sigma = 0.8  (tight)")
+    plot_graph(A_wide,  coords, "sigma = 2.5  (wide)")
+  }, finally = {
+    par(oldpar)
+  })
+})
 ```
 
 ---
@@ -216,16 +230,23 @@ signal_smoothed <- as.numeric(S %*% signal_raw)
 ```
 
 ```{r smooth-plot, echo = FALSE, fig.cap = "One pass of the spatial smoother turns Gaussian noise (left) into a smoothly varying field (right). The same heat kernel defines both neighbor selection and weight decay.", fig.width = 7, fig.height = 3.5}
-par(mfrow = c(1, 2), mar = c(2, 2, 2.5, 1))
-zlim_range <- range(c(signal_raw, signal_smoothed))
-heat_pal   <- colorRampPalette(c("#d73027", "white", "#4575b4"))(50)
+local({
+  oldpar <- par(no.readonly = TRUE)
+  tryCatch({
+    par(mfrow = c(1, 2), mar = c(2, 2, 2.5, 1))
+    zlim_range <- range(c(signal_raw, signal_smoothed))
+    heat_pal   <- colorRampPalette(c("#d73027", "white", "#4575b4"))(50)
 
-image(1:6, 1:6, matrix(signal_raw, 6, 6),
-      zlim = zlim_range, col = heat_pal,
-      main = "Raw signal", xlab = "x", ylab = "y")
-image(1:6, 1:6, matrix(signal_smoothed, 6, 6),
-      zlim = zlim_range, col = heat_pal,
-      main = "After spatial smooth", xlab = "x", ylab = "y")
+    image(1:6, 1:6, matrix(signal_raw, 6, 6),
+          zlim = zlim_range, col = heat_pal,
+          main = "Raw signal", xlab = "x", ylab = "y")
+    image(1:6, 1:6, matrix(signal_smoothed, 6, 6),
+          zlim = zlim_range, col = heat_pal,
+          main = "After spatial smooth", xlab = "x", ylab = "y")
+  }, finally = {
+    par(oldpar)
+  })
+})
 ```
 
 Set `stochastic = TRUE` to apply Sinkhorn–Knopp normalization and produce a
@@ -272,19 +293,26 @@ A_ft  <- weighted_spatial_adjacency(coords, features,
 ```
 
 ```{r weighted-adj-plot, echo = FALSE, fig.cap = "Adjacency heat maps for three alpha values. Spatial-only (left) shows a clean block structure; feature-only (right) looks noisier because the random features carry no spatial signal.", fig.width = 9, fig.height = 3}
-par(mfrow = c(1, 3), mar = c(1, 1, 2.5, 0.5))
+local({
+  oldpar <- par(no.readonly = TRUE)
+  tryCatch({
+    par(mfrow = c(1, 3), mar = c(1, 1, 2.5, 0.5))
 
-show_adj <- function(A, title) {
-  image(seq(0, 1, length.out = 36),
-        seq(0, 1, length.out = 36),
-        as.matrix(A),
-        col  = colorRampPalette(c("white", "#2c7bb6"))(40),
-        axes = FALSE, xlab = "", ylab = "", main = title)
-}
+    show_adj <- function(A, title) {
+      image(seq(0, 1, length.out = 36),
+            seq(0, 1, length.out = 36),
+            as.matrix(A),
+            col  = colorRampPalette(c("white", "#2c7bb6"))(40),
+            axes = FALSE, xlab = "", ylab = "", main = title)
+    }
 
-show_adj(A_sp,  "alpha = 0\n(spatial only)")
-show_adj(A_mix, "alpha = 0.5\n(blend)")
-show_adj(A_ft,  "alpha = 1\n(feature only)")
+    show_adj(A_sp,  "alpha = 0\n(spatial only)")
+    show_adj(A_mix, "alpha = 0.5\n(blend)")
+    show_adj(A_ft,  "alpha = 1\n(feature only)")
+  }, finally = {
+    par(oldpar)
+  })
+})
 ```
 
 With random features the feature-only matrix is noisy. When features carry
@@ -311,19 +339,26 @@ signal_spatial   <- as.numeric(S %*% signal_field)   # plain spatial smoother
 ```
 
 ```{r bilateral-plot, echo = FALSE, fig.cap = "Bilateral smoother (right) preserves the hard boundary between the two signal regions; a plain spatial smoother (left) blurs across it.", fig.width = 7, fig.height = 3.5}
-par(mfrow = c(1, 2), mar = c(2, 2, 2.5, 1))
-zlim_b   <- range(c(signal_spatial, signal_bilateral))
-heat_pal <- colorRampPalette(c("#d73027", "white", "#4575b4"))(50)
+local({
+  oldpar <- par(no.readonly = TRUE)
+  tryCatch({
+    par(mfrow = c(1, 2), mar = c(2, 2, 2.5, 1))
+    zlim_b   <- range(c(signal_spatial, signal_bilateral))
+    heat_pal <- colorRampPalette(c("#d73027", "white", "#4575b4"))(50)
 
-image(1:6, 1:6, matrix(signal_spatial, 6, 6),
-      zlim = zlim_b, col = heat_pal,
-      main = "Spatial smoother\n(blurs boundary)", xlab = "x", ylab = "y")
-abline(v = 3.5, col = "black", lwd = 2, lty = 2)
+    image(1:6, 1:6, matrix(signal_spatial, 6, 6),
+          zlim = zlim_b, col = heat_pal,
+          main = "Spatial smoother\n(blurs boundary)", xlab = "x", ylab = "y")
+    abline(v = 3.5, col = "black", lwd = 2, lty = 2)
 
-image(1:6, 1:6, matrix(signal_bilateral, 6, 6),
-      zlim = zlim_b, col = heat_pal,
-      main = "Bilateral smoother\n(preserves boundary)", xlab = "x", ylab = "y")
-abline(v = 3.5, col = "black", lwd = 2, lty = 2)
+    image(1:6, 1:6, matrix(signal_bilateral, 6, 6),
+          zlim = zlim_b, col = heat_pal,
+          main = "Bilateral smoother\n(preserves boundary)", xlab = "x", ylab = "y")
+    abline(v = 3.5, col = "black", lwd = 2, lty = 2)
+  }, finally = {
+    par(oldpar)
+  })
+})
 ```
 
 The `f_sigma` parameter controls how sensitive the filter is to feature
@@ -389,7 +424,7 @@ weighting.
 | `bilateral_smoother()` | Edge-preserving spatial smoother |
 | `spatial_constraints()` | Multi-block constraint matrix for repeated layouts |
 | `feature_weighted_spatial_constraints()` | Multi-block constraints with per-block feature weighting |
-| `normalize_adjacency()` | Row-normalize any adjacency matrix |
+| `normalize_adjacency()` | Apply symmetric degree normalization |
 | `make_doubly_stochastic()` | Sinkhorn–Knopp doubly stochastic normalization |
 
 ---
