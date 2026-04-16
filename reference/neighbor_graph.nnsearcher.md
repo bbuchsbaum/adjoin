@@ -59,9 +59,9 @@ X <- matrix(rnorm(20), nrow=5)
 searcher <- nnsearcher(X)
 neighbor_graph(searcher, k=2, type="normal", transform="heat", sigma=1)
 #> $G
-#> IGRAPH e529095 U-W- 5 7 -- 
+#> IGRAPH 9bc1bdc U-W- 5 7 -- 
 #> + attr: weight (e/n)
-#> + edges from e529095:
+#> + edges from 9bc1bdc:
 #> [1] 1--2 1--5 2--3 2--4 2--5 3--5 4--5
 #> 
 #> $params

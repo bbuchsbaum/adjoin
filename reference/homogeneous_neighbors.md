@@ -46,9 +46,9 @@ cg <- class_graph(labs)
 X <- matrix(rnorm(8), ncol=2)
 homogeneous_neighbors(cg, X, k=1)
 #> $G
-#> IGRAPH f1e3d7e U-W- 4 2 -- 
+#> IGRAPH 87970ea U-W- 4 2 -- 
 #> + attr: weight (e/n)
-#> + edges from f1e3d7e:
+#> + edges from 87970ea:
 #> [1] 1--2 3--4
 #> 
 #> $params

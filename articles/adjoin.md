@@ -94,6 +94,37 @@ symmetric-normalized forms are available directly.
 
 ------------------------------------------------------------------------
 
+## Which graph constructor should I use?
+
+Most users should start with
+[`graph_weights()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights.md).
+It takes a data matrix, finds k-nearest neighbors with exact Euclidean
+search, converts distances to similarities, applies the requested
+symmetry rule, and returns a `neighbor_graph` with the construction
+parameters stored in `$params`.
+
+Use the lower-level constructors when you need a different return type
+or more control over the search step:
+
+| Function                                                                                            | Return value                | Use it when                                                                                                                                                                                                                                                                                                                 |
+|:----------------------------------------------------------------------------------------------------|:----------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`graph_weights()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights.md)           | `neighbor_graph`            | You want the standard feature-similarity graph API: [`adjacency()`](https://bbuchsbaum.github.io/graphweights/reference/adjacency.md), [`laplacian()`](https://bbuchsbaum.github.io/graphweights/reference/laplacian.md), [`edges()`](https://bbuchsbaum.github.io/graphweights/reference/edges.md), and stored parameters. |
+| [`weighted_knn()`](https://bbuchsbaum.github.io/graphweights/reference/weighted_knn.md)             | `igraph` or sparse `Matrix` | You want a raw weighted kNN graph/matrix and will manage metadata yourself.                                                                                                                                                                                                                                                 |
+| [`graph_weights_fast()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights_fast.md) | sparse `Matrix`             | You want the faster matrix-only path, self-tuned weights, or explicit backend control. Exact `Rnanoflann` search is the default; approximate HNSW is used only with `backend = "hnsw"`.                                                                                                                                     |
+| [`neighbor_graph()`](https://bbuchsbaum.github.io/graphweights/reference/neighbor_graph.md)         | `neighbor_graph` wrapper    | You already have an `igraph`, adjacency matrix, or `nnsearcher` result and want to wrap it in the package’s graph object.                                                                                                                                                                                                   |
+
+In short,
+[`graph_weights()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights.md)
+is the high-level constructor,
+[`weighted_knn()`](https://bbuchsbaum.github.io/graphweights/reference/weighted_knn.md)
+and
+[`graph_weights_fast()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights_fast.md)
+are matrix/graph builders, and
+[`neighbor_graph()`](https://bbuchsbaum.github.io/graphweights/reference/neighbor_graph.md)
+is the object wrapper used after a graph already exists.
+
+------------------------------------------------------------------------
+
 ## Inside a neighbor_graph
 
 A `neighbor_graph` is a named list:
@@ -296,32 +327,49 @@ cross-modal retrieval, domain adaptation, and inter-subject alignment.
 Raw adjacency matrices are degree-imbalanced: high-degree nodes
 dominate.
 [`normalize_adjacency()`](https://bbuchsbaum.github.io/graphweights/reference/normalize_adjacency.md)
-row-normalizes to produce a Markov transition matrix:
+applies the symmetric degree normalization `D^{-1/2} A D^{-1/2}` used by
+the package’s default spectral diffusion routines. It preserves
+symmetry, so the row sums are not expected to equal one:
 
 ``` r
 A_raw  <- adjacency(ng)
 A_norm <- normalize_adjacency(A_raw)
 
-# Confirm rows sum to 1 (stochastic matrix)
 range(Matrix::rowSums(A_norm))
 #> [1] 0.5762124 1.3103125
+Matrix::isSymmetric(A_norm)
+#> [1] TRUE
 ```
 
-Row-stochastic matrices are needed for random walk analysis,
-[`compute_diffusion_kernel()`](https://bbuchsbaum.github.io/graphweights/reference/compute_diffusion_kernel.md),
-and
-[`compute_diffusion_map()`](https://bbuchsbaum.github.io/graphweights/reference/compute_diffusion_map.md).
+For a Markov transition matrix used in random-walk analysis,
+row-normalize by degree instead:
+
+``` r
+deg <- Matrix::rowSums(A_raw)
+P_walk <- Matrix::Diagonal(x = ifelse(deg > 0, 1 / deg, 0)) %*% A_raw
+
+range(Matrix::rowSums(P_walk)[deg > 0])
+#> [1] 1 1
+```
+
+Use the symmetric normalization for spectral diffusion embeddings. Use a
+row-stochastic transition matrix when the downstream analysis is
+explicitly a random walk;
+`compute_diffusion_kernel(..., symmetric = FALSE)` constructs that
+transition internally.
 
 ------------------------------------------------------------------------
 
 ## Quick-reference: objects and constructors
 
-| Class            | Constructor(s)                                                                                                                                                                                                                                                                  | What it holds                                 |
-|:-----------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:----------------------------------------------|
-| `neighbor_graph` | [`graph_weights()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights.md), [`weighted_knn()`](https://bbuchsbaum.github.io/graphweights/reference/weighted_knn.md), [`neighbor_graph()`](https://bbuchsbaum.github.io/graphweights/reference/neighbor_graph.md) | igraph + construction params                  |
-| `class_graph`    | [`class_graph()`](https://bbuchsbaum.github.io/graphweights/reference/class_graph.md)                                                                                                                                                                                           | Extends `neighbor_graph` with class structure |
-| `nnsearcher`     | [`nnsearcher()`](https://bbuchsbaum.github.io/graphweights/reference/nnsearcher.md)                                                                                                                                                                                             | Fast kNN index for repeated queries           |
-| `nn_search`      | [`find_nn()`](https://bbuchsbaum.github.io/graphweights/reference/find_nn.md), [`find_nn_among()`](https://bbuchsbaum.github.io/graphweights/reference/find_nn_among.md), [`find_nn_between()`](https://bbuchsbaum.github.io/graphweights/reference/find_nn_between.md)         | Raw search result (indices + distances)       |
+| Object                    | Created by                                                                                                                                                                                                                                                              | What it holds                                      |
+|:--------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:---------------------------------------------------|
+| `neighbor_graph`          | [`graph_weights()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights.md), [`neighbor_graph()`](https://bbuchsbaum.github.io/graphweights/reference/neighbor_graph.md)                                                                                  | `igraph` + construction params                     |
+| sparse adjacency `Matrix` | `weighted_knn(..., as = "sparse")`, [`graph_weights_fast()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights_fast.md), [`adjacency()`](https://bbuchsbaum.github.io/graphweights/reference/adjacency.md)                                              | Numeric edge weights for downstream matrix methods |
+| `igraph`                  | `weighted_knn(..., as = "igraph")`                                                                                                                                                                                                                                      | Raw graph topology and edge weights                |
+| `class_graph`             | [`class_graph()`](https://bbuchsbaum.github.io/graphweights/reference/class_graph.md)                                                                                                                                                                                   | Extends `neighbor_graph` with class structure      |
+| `nnsearcher`              | [`nnsearcher()`](https://bbuchsbaum.github.io/graphweights/reference/nnsearcher.md)                                                                                                                                                                                     | Reusable nearest-neighbor search index             |
+| `nn_search`               | [`find_nn()`](https://bbuchsbaum.github.io/graphweights/reference/find_nn.md), [`find_nn_among()`](https://bbuchsbaum.github.io/graphweights/reference/find_nn_among.md), [`find_nn_between()`](https://bbuchsbaum.github.io/graphweights/reference/find_nn_between.md) | Raw search result: indices, distances, labels      |
 
 ------------------------------------------------------------------------
 

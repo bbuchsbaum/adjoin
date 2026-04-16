@@ -311,7 +311,7 @@ extends this with per-block feature weighting.
 | [`bilateral_smoother()`](https://bbuchsbaum.github.io/graphweights/reference/bilateral_smoother.md)                                     | Edge-preserving spatial smoother                         |
 | [`spatial_constraints()`](https://bbuchsbaum.github.io/graphweights/reference/spatial_constraints.md)                                   | Multi-block constraint matrix for repeated layouts       |
 | [`feature_weighted_spatial_constraints()`](https://bbuchsbaum.github.io/graphweights/reference/feature_weighted_spatial_constraints.md) | Multi-block constraints with per-block feature weighting |
-| [`normalize_adjacency()`](https://bbuchsbaum.github.io/graphweights/reference/normalize_adjacency.md)                                   | Row-normalize any adjacency matrix                       |
+| [`normalize_adjacency()`](https://bbuchsbaum.github.io/graphweights/reference/normalize_adjacency.md)                                   | Apply symmetric degree normalization                     |
 | [`make_doubly_stochastic()`](https://bbuchsbaum.github.io/graphweights/reference/make_doubly_stochastic.md)                             | Sinkhorn–Knopp doubly stochastic normalization           |
 
 ------------------------------------------------------------------------

@@ -35,8 +35,8 @@ cg <- class_graph(labs)
 ng <- neighbor_graph(diag(3))
 within_class_neighbors(cg, ng)
 #> $G
-#> IGRAPH c6c84d6 U--- 3 0 -- 
-#> + edges from c6c84d6:
+#> IGRAPH 5a149f0 U--- 3 0 -- 
+#> + edges from 5a149f0:
 #> 
 #> $params
 #> list()

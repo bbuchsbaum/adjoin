@@ -154,6 +154,68 @@ symmetric-normalized forms are available directly.</p>
 <hr>
 </div>
 <div class="section level2">
+<h2 id="which-graph-constructor-should-i-use">Which graph constructor should I use?<a class="anchor" aria-label="anchor" href="#which-graph-constructor-should-i-use"></a>
+</h2>
+<p>Most users should start with <code><a href="../reference/graph_weights.html">graph_weights()</a></code>. It takes a
+data matrix, finds k-nearest neighbors with exact Euclidean search,
+converts distances to similarities, applies the requested symmetry rule,
+and returns a <code>neighbor_graph</code> with the construction
+parameters stored in <code>$params</code>.</p>
+<p>Use the lower-level constructors when you need a different return
+type or more control over the search step:</p>
+<table class="table">
+<colgroup>
+<col width="27%">
+<col width="37%">
+<col width="35%">
+</colgroup>
+<thead><tr class="header">
+<th align="left">Function</th>
+<th align="left">Return value</th>
+<th align="left">Use it when</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code><a href="../reference/graph_weights.html">graph_weights()</a></code></td>
+<td align="left"><code>neighbor_graph</code></td>
+<td align="left">You want the standard feature-similarity graph API:
+<code><a href="../reference/adjacency.html">adjacency()</a></code>, <code><a href="../reference/laplacian.html">laplacian()</a></code>,
+<code><a href="../reference/edges.html">edges()</a></code>, and stored parameters.</td>
+</tr>
+<tr class="even">
+<td align="left"><code><a href="../reference/weighted_knn.html">weighted_knn()</a></code></td>
+<td align="left">
+<code>igraph</code> or sparse <code>Matrix</code>
+</td>
+<td align="left">You want a raw weighted kNN graph/matrix and will
+manage metadata yourself.</td>
+</tr>
+<tr class="odd">
+<td align="left"><code><a href="../reference/graph_weights_fast.html">graph_weights_fast()</a></code></td>
+<td align="left">sparse <code>Matrix</code>
+</td>
+<td align="left">You want the faster matrix-only path, self-tuned
+weights, or explicit backend control. Exact <code>Rnanoflann</code>
+search is the default; approximate HNSW is used only with
+<code>backend = "hnsw"</code>.</td>
+</tr>
+<tr class="even">
+<td align="left"><code><a href="../reference/neighbor_graph.html">neighbor_graph()</a></code></td>
+<td align="left">
+<code>neighbor_graph</code> wrapper</td>
+<td align="left">You already have an <code>igraph</code>, adjacency
+matrix, or <code>nnsearcher</code> result and want to wrap it in the
+package’s graph object.</td>
+</tr>
+</tbody>
+</table>
+<p>In short, <code><a href="../reference/graph_weights.html">graph_weights()</a></code> is the high-level constructor,
+<code><a href="../reference/weighted_knn.html">weighted_knn()</a></code> and <code><a href="../reference/graph_weights_fast.html">graph_weights_fast()</a></code> are
+matrix/graph builders, and <code><a href="../reference/neighbor_graph.html">neighbor_graph()</a></code> is the object
+wrapper used after a graph already exists.</p>
+<hr>
+</div>
+<div class="section level2">
 <h2 id="inside-a-neighbor_graph">Inside a neighbor_graph<a class="anchor" aria-label="anchor" href="#inside-a-neighbor_graph"></a>
 </h2>
 <p>A <code>neighbor_graph</code> is a named list:</p>
@@ -349,18 +411,31 @@ alignment.</p>
 <h2 id="normalizing-for-diffusion-and-random-walks">Normalizing for diffusion and random walks<a class="anchor" aria-label="anchor" href="#normalizing-for-diffusion-and-random-walks"></a>
 </h2>
 <p>Raw adjacency matrices are degree-imbalanced: high-degree nodes
-dominate. <code><a href="../reference/normalize_adjacency.html">normalize_adjacency()</a></code> row-normalizes to produce a
-Markov transition matrix:</p>
+dominate. <code><a href="../reference/normalize_adjacency.html">normalize_adjacency()</a></code> applies the symmetric
+degree normalization <code>D^{-1/2} A D^{-1/2}</code> used by the
+package’s default spectral diffusion routines. It preserves symmetry, so
+the row sums are not expected to equal one:</p>
 <div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">A_raw</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/adjacency.html">adjacency</a></span><span class="op">(</span><span class="va">ng</span><span class="op">)</span></span>
 <span><span class="va">A_norm</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/normalize_adjacency.html">normalize_adjacency</a></span><span class="op">(</span><span class="va">A_raw</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Confirm rows sum to 1 (stochastic matrix)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu">Matrix</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/colSums-methods.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">A_norm</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 0.5762124 1.3103125</span></span></code></pre></div>
-<p>Row-stochastic matrices are needed for random walk analysis,
-<code><a href="../reference/compute_diffusion_kernel.html">compute_diffusion_kernel()</a></code>, and
-<code><a href="../reference/compute_diffusion_map.html">compute_diffusion_map()</a></code>.</p>
+<span><span class="co">#&gt; [1] 0.5762124 1.3103125</span></span>
+<span><span class="fu">Matrix</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/isSymmetric-methods.html" class="external-link">isSymmetric</a></span><span class="op">(</span><span class="va">A_norm</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
+<p>For a Markov transition matrix used in random-walk analysis,
+row-normalize by degree instead:</p>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">deg</span> <span class="op">&lt;-</span> <span class="fu">Matrix</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/colSums-methods.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">A_raw</span><span class="op">)</span></span>
+<span><span class="va">P_walk</span> <span class="op">&lt;-</span> <span class="fu">Matrix</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/Diagonal.html" class="external-link">Diagonal</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">deg</span> <span class="op">&gt;</span> <span class="fl">0</span>, <span class="fl">1</span> <span class="op">/</span> <span class="va">deg</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">A_raw</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu">Matrix</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/colSums-methods.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">P_walk</span><span class="op">)</span><span class="op">[</span><span class="va">deg</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 1 1</span></span></code></pre></div>
+<p>Use the symmetric normalization for spectral diffusion embeddings.
+Use a row-stochastic transition matrix when the downstream analysis is
+explicitly a random walk;
+<code>compute_diffusion_kernel(..., symmetric = FALSE)</code> constructs
+that transition internally.</p>
 <hr>
 </div>
 <div class="section level2">
@@ -368,13 +443,13 @@ Markov transition matrix:</p>
 </h2>
 <table class="table">
 <colgroup>
-<col width="18%">
+<col width="22%">
+<col width="34%">
 <col width="42%">
-<col width="39%">
 </colgroup>
 <thead><tr class="header">
-<th align="left">Class</th>
-<th align="left">Constructor(s)</th>
+<th align="left">Object</th>
+<th align="left">Created by</th>
 <th align="left">What it holds</th>
 </tr></thead>
 <tbody>
@@ -382,9 +457,24 @@ Markov transition matrix:</p>
 <td align="left"><code>neighbor_graph</code></td>
 <td align="left">
 <code><a href="../reference/graph_weights.html">graph_weights()</a></code>,
-<code><a href="../reference/weighted_knn.html">weighted_knn()</a></code>, <code><a href="../reference/neighbor_graph.html">neighbor_graph()</a></code>
+<code><a href="../reference/neighbor_graph.html">neighbor_graph()</a></code>
 </td>
-<td align="left">igraph + construction params</td>
+<td align="left">
+<code>igraph</code> + construction params</td>
+</tr>
+<tr class="even">
+<td align="left">sparse adjacency <code>Matrix</code>
+</td>
+<td align="left">
+<code>weighted_knn(..., as = "sparse")</code>,
+<code><a href="../reference/graph_weights_fast.html">graph_weights_fast()</a></code>, <code><a href="../reference/adjacency.html">adjacency()</a></code>
+</td>
+<td align="left">Numeric edge weights for downstream matrix methods</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>igraph</code></td>
+<td align="left"><code>weighted_knn(..., as = "igraph")</code></td>
+<td align="left">Raw graph topology and edge weights</td>
 </tr>
 <tr class="even">
 <td align="left"><code>class_graph</code></td>
@@ -395,7 +485,7 @@ structure</td>
 <tr class="odd">
 <td align="left"><code>nnsearcher</code></td>
 <td align="left"><code><a href="../reference/nnsearcher.html">nnsearcher()</a></code></td>
-<td align="left">Fast kNN index for repeated queries</td>
+<td align="left">Reusable nearest-neighbor search index</td>
 </tr>
 <tr class="even">
 <td align="left"><code>nn_search</code></td>
@@ -403,7 +493,7 @@ structure</td>
 <code><a href="../reference/find_nn.html">find_nn()</a></code>, <code><a href="../reference/find_nn_among.html">find_nn_among()</a></code>,
 <code><a href="../reference/find_nn_between.html">find_nn_between()</a></code>
 </td>
-<td align="left">Raw search result (indices + distances)</td>
+<td align="left">Raw search result: indices, distances, labels</td>
 </tr>
 </tbody>
 </table>
