@@ -25,7 +25,8 @@ Note: "cosine" and "ip" require the RcppHNSW package.}
 
 \item{M}{The maximum number of connections for HNSW (only used with cosine/ip).}
 
-\item{ef}{The size of the dynamic candidate list for HNSW (only used with cosine/ip).}
+\item{ef}{The size of the dynamic candidate list for HNSW (only used with
+cosine/ip). Larger values usually improve recall at the cost of runtime.}
 }
 \value{
 An object of class "nnsearcher" containing the data matrix, labels,
@@ -33,8 +34,9 @@ An object of class "nnsearcher" containing the data matrix, labels,
 }
 \description{
 Create a nearest neighbor searcher object for efficient nearest neighbor search.
-Uses Rnanoflann (exact Euclidean search) by default, or RcppHNSW (approximate search
-with cosine/inner-product support) when those distance metrics are requested.
+Uses `Rnanoflann` for exact Euclidean search by default. Uses `RcppHNSW`
+for approximate search only when cosine or inner-product distances are
+requested.
 }
 \examples{
 \donttest{

@@ -1,8 +1,8 @@
 #' Fast kNN Graph Weights
 #'
-#' Construct a sparse k-nearest-neighbor (kNN) graph quickly. For L2 distance, this
-#' uses `RcppHNSW` when available (approximate, very fast) and falls back to
-#' `Rnanoflann` (exact) otherwise.
+#' Construct a sparse k-nearest-neighbor (kNN) graph quickly. The default
+#' backend is `Rnanoflann`, which performs exact Euclidean search. Set
+#' `backend = "hnsw"` to opt in to approximate HNSW search via `RcppHNSW`.
 #'
 #' The default weighting mode (`"self_tuned"`) uses a self-tuning heat kernel based
 #' on per-point local scale, which tends to work well across varying densities.
@@ -15,15 +15,20 @@
 #' @param type Symmetrization policy. `"normal"` returns a union graph with
 #'   `max(w_ij, w_ji)`; `"mutual"` returns an intersection graph with
 #'   `min(w_ij, w_ji)`; `"asym"` returns the directed kNN graph.
-#' @param backend Neighbor search backend: `"auto"` (default), `"hnsw"`, or
-#'   `"nanoflann"`.
+#' @param backend Neighbor search backend: `"nanoflann"` (default, exact
+#'   Euclidean search), `"hnsw"` (approximate search via `RcppHNSW`), or
+#'   `"auto"` (currently resolves to `"nanoflann"` to avoid implicit
+#'   approximate results).
 #' @param sigma Bandwidth for `"heat"`/`"normalized"` modes. If `NULL`, a robust
 #'   value is estimated from kNN distances.
 #' @param local_k Local neighborhood size used by `"self_tuned"`; defaults to
 #'   `min(7, k)`.
-#' @param M,ef HNSW parameters (only used when `backend="hnsw"`).
+#' @param M,ef HNSW parameters (only used when `backend = "hnsw"`). Larger
+#'   `ef` usually improves recall at the cost of runtime.
 #'
-#' @details Provides additional neighbor search backends (HNSW, nanoflann) and self-tuning sigma estimation not available in \code{\link{graph_weights}}.
+#' @details Provides additional neighbor search backends (HNSW, nanoflann) and
+#' self-tuning sigma estimation not available in \code{\link{graph_weights}}.
+#' Approximate search is never selected unless `backend = "hnsw"` is requested.
 #'
 #' @return A sparse `dgCMatrix` adjacency matrix.
 #' @seealso \code{\link{graph_weights}} for the standard interface
@@ -37,7 +42,7 @@ graph_weights_fast <- function(X, k = 15,
                                weight_mode = c("self_tuned", "heat", "normalized", "binary",
                                                "euclidean", "cosine", "correlation"),
                                type = c("normal", "mutual", "asym"),
-                               backend = c("auto", "hnsw", "nanoflann"),
+                               backend = c("nanoflann", "hnsw", "auto"),
                                sigma = NULL,
                                local_k = min(7L, k),
                                M = 16, ef = 200) {
@@ -77,9 +82,7 @@ graph_weights_fast <- function(X, k = 15,
     X[!is.finite(X)] <- 0
   }
 
-  if (backend == "auto") {
-    backend <- if (requireNamespace("RcppHNSW", quietly = TRUE)) "hnsw" else "nanoflann"
-  }
+  if (backend == "auto") backend <- "nanoflann"
 
   # Compute kNN: idx (n x k) and d2 (n x k) where d2 are squared L2 distances.
   k_use <- min(k + 1L, n)
@@ -88,7 +91,7 @@ graph_weights_fast <- function(X, k = 15,
       stop("backend='hnsw' requires the RcppHNSW package.", call. = FALSE)
     }
     ann <- RcppHNSW::hnsw_build(X, distance = "l2", M = M, ef = ef)
-    res <- RcppHNSW::hnsw_search(X, ann, k = k_use)
+    res <- RcppHNSW::hnsw_search(X, ann, k = k_use, ef = ef)
     idx <- res$idx[, -1, drop = FALSE]
     d2 <- res$dist[, -1, drop = FALSE]
   } else {

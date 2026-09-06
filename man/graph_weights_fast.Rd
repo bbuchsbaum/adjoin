@@ -10,7 +10,7 @@ graph_weights_fast(
   weight_mode = c("self_tuned", "heat", "normalized", "binary", "euclidean", "cosine",
     "correlation"),
   type = c("normal", "mutual", "asym"),
-  backend = c("auto", "hnsw", "nanoflann"),
+  backend = c("nanoflann", "hnsw", "auto"),
   sigma = NULL,
   local_k = min(7L, k),
   M = 16,
@@ -30,8 +30,10 @@ graph_weights_fast(
 `max(w_ij, w_ji)`; `"mutual"` returns an intersection graph with
 `min(w_ij, w_ji)`; `"asym"` returns the directed kNN graph.}
 
-\item{backend}{Neighbor search backend: `"auto"` (default), `"hnsw"`, or
-`"nanoflann"`.}
+\item{backend}{Neighbor search backend: `"nanoflann"` (default, exact
+Euclidean search), `"hnsw"` (approximate search via `RcppHNSW`), or
+`"auto"` (currently resolves to `"nanoflann"` to avoid implicit
+approximate results).}
 
 \item{sigma}{Bandwidth for `"heat"`/`"normalized"` modes. If `NULL`, a robust
 value is estimated from kNN distances.}
@@ -39,21 +41,24 @@ value is estimated from kNN distances.}
 \item{local_k}{Local neighborhood size used by `"self_tuned"`; defaults to
 `min(7, k)`.}
 
-\item{M, ef}{HNSW parameters (only used when `backend="hnsw"`).}
+\item{M, ef}{HNSW parameters (only used when `backend = "hnsw"`). Larger
+`ef` usually improves recall at the cost of runtime.}
 }
 \value{
 A sparse `dgCMatrix` adjacency matrix.
 }
 \description{
-Construct a sparse k-nearest-neighbor (kNN) graph quickly. For L2 distance, this
-uses `RcppHNSW` when available (approximate, very fast) and falls back to
-`Rnanoflann` (exact) otherwise.
+Construct a sparse k-nearest-neighbor (kNN) graph quickly. The default
+backend is `Rnanoflann`, which performs exact Euclidean search. Set
+`backend = "hnsw"` to opt in to approximate HNSW search via `RcppHNSW`.
 }
 \details{
 The default weighting mode (`"self_tuned"`) uses a self-tuning heat kernel based
 on per-point local scale, which tends to work well across varying densities.
 
-Provides additional neighbor search backends (HNSW, nanoflann) and self-tuning sigma estimation not available in \code{\link{graph_weights}}.
+Provides additional neighbor search backends (HNSW, nanoflann) and
+self-tuning sigma estimation not available in \code{\link{graph_weights}}.
+Approximate search is never selected unless `backend = "hnsw"` is requested.
 }
 \examples{
 X <- matrix(rnorm(200), 20, 10)

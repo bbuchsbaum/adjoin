@@ -135,7 +135,7 @@ knn_search_euclidean <- function(data, points = data, k,
     }
 
     ann <- RcppHNSW::hnsw_build(data, distance = "l2", M = M, ef = ef)
-    res <- RcppHNSW::hnsw_search(points, ann, k = k_search)
+    res <- RcppHNSW::hnsw_search(points, ann, k = k_search, ef = ef)
     idx <- res$idx
     dst <- sqrt(res$dist)
   } else {
@@ -413,13 +413,15 @@ threshold_adjacency <- function(A, k = 5,
 #' @param as A character string indicating the format of the output. One of "igraph", "sparse", or "index_sim" (default: "igraph").
 #'
 #' @details
-#' Distances passed to `FUN` are Euclidean distances. With `backend="hnsw"`,
-#' squared L2 distances from `RcppHNSW` are converted back to Euclidean
-#' distances before weighting.
+#' Distances passed to `FUN` are Euclidean distances. The default
+#' `backend = "nanoflann"` uses exact Euclidean search. Set `backend = "hnsw"`
+#' to opt in to approximate search via `RcppHNSW`; squared L2 distances from
+#' `RcppHNSW` are converted back to Euclidean distances before weighting.
 #'
 #' @param backend Nearest-neighbor backend. `"nanoflann"` uses exact Euclidean
 #'   search; `"hnsw"` uses approximate search via `RcppHNSW`.
-#' @param M,ef HNSW tuning parameters used only when `backend="hnsw"`.
+#' @param M,ef HNSW tuning parameters used only when `backend = "hnsw"`.
+#'   Larger `ef` usually improves recall at the cost of runtime.
 #'
 #' @return If 'as' is "index_sim", a two-column matrix where the first column contains the indices of nearest neighbors and the second column contains the corresponding kernel values.
 #'         If 'as' is "igraph", an igraph object representing the cross adjacency graph.
@@ -490,13 +492,15 @@ cross_adjacency <- function(X, Y, k = 5, FUN = heat_kernel,
 #' @param ... Additional arguments passed to the nearest neighbor search function (Rnanoflann::nn).
 #'
 #' @details
-#' Distances passed to `FUN` are Euclidean distances. With `backend="hnsw"`,
-#' squared L2 distances from `RcppHNSW` are converted back to Euclidean
-#' distances before weighting.
+#' Distances passed to `FUN` are Euclidean distances. The default
+#' `backend = "nanoflann"` uses exact Euclidean search. Set `backend = "hnsw"`
+#' to opt in to approximate search via `RcppHNSW`; squared L2 distances from
+#' `RcppHNSW` are converted back to Euclidean distances before weighting.
 #'
 #' @param backend Nearest-neighbor backend. `"nanoflann"` uses exact Euclidean
 #'   search; `"hnsw"` uses approximate search via `RcppHNSW`.
-#' @param M,ef HNSW tuning parameters used only when `backend="hnsw"`.
+#' @param M,ef HNSW tuning parameters used only when `backend = "hnsw"`.
+#'   Larger `ef` usually improves recall at the cost of runtime.
 #'
 #' @return If 'as' is "igraph", an igraph object representing the weighted k-nearest neighbors graph.
 #'         If 'as' is "sparse", a sparse adjacency matrix.
