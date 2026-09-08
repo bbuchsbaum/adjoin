@@ -85,7 +85,7 @@ its input.
 
 ## See also
 
-[`graph_weights_fast`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights_fast.md)
+[`graph_weights_fast`](https://bbuchsbaum.github.io/adjoin/reference/graph_weights_fast.md)
 for additional backends and self-tuning options
 
 ## Examples

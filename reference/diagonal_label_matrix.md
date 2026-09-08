@@ -51,14 +51,14 @@ position i satisfy the comparison, 0 otherwise.
 
 This function performs element-wise comparison, NOT all-pairs
 comparison. For all-pairs comparison (block structure), use
-[`binary_label_matrix`](https://bbuchsbaum.github.io/graphweights/reference/binary_label_matrix.md).
+[`binary_label_matrix`](https://bbuchsbaum.github.io/adjoin/reference/binary_label_matrix.md).
 
 The vectors \`a\` and \`b\` must have the same length. If they differ,
 recycling will occur which is likely unintended.
 
 ## See also
 
-[`binary_label_matrix`](https://bbuchsbaum.github.io/graphweights/reference/binary_label_matrix.md)
+[`binary_label_matrix`](https://bbuchsbaum.github.io/adjoin/reference/binary_label_matrix.md)
 for all-pairs comparison
 
 ## Examples

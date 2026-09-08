@@ -1,54 +1,69 @@
-# neighborweights
+# adjoin
 
-## Overview
+**adjoin** constructs sparse adjacency matrices from spatial
+coordinates, feature measurements, class labels, and temporal indices.
 
-The `neighborweights` package provides a collection of functions for
-constructing adjacency matrices based on spatial and feature-based
-similarity between data points. It enables users to analyze and
-visualize complex data relationships by creating spatial and
-feature-weighted adjacency matrices using various methods.
+[Documentation](https://bbuchsbaum.github.io/adjoin/) · [Getting
+started](https://bbuchsbaum.github.io/adjoin/articles/adjoin.html) ·
+[Spatial
+neighbors](https://bbuchsbaum.github.io/adjoin/articles/spatial-neighbors.html)
+· [API reference](https://bbuchsbaum.github.io/adjoin/reference/) ·
+[Changelog](https://bbuchsbaum.github.io/adjoin/NEWS.md)
 
 ## Installation
 
-You can install the `neighborweights` package from GitHub with:
+Install the released version from CRAN:
 
 ``` r
-# install.packages("devtools")
-devtools::install_github("bbuchsbaum/neighborweights")
+
+install.packages("adjoin")
 ```
 
-## Usage
-
-Here’s a basic example demonstrating how to create a spatial adjacency
-matrix using the spatial_adjacency function:
+Or the development version from GitHub:
 
 ``` r
-library(neighborweights)
 
-# Generate random coordinates
-coord_mat <- matrix(runif(20), nrow=10, ncol=2)
+# install.packages("remotes")
+remotes::install_github("bbuchsbaum/adjoin")
+```
 
-# Calculate the spatial adjacency matrix
-spatial_mat <- spatial_adjacency(coord_mat, nnk=5, sigma=1)
+## Quick start
 
-# Inspect the resulting matrix
-print(spatial_mat)
+Build a spatial adjacency matrix from coordinates with
+[`spatial_adjacency()`](https://bbuchsbaum.github.io/adjoin/reference/spatial_adjacency.md):
+
+``` r
+
+library(adjoin)
+
+set.seed(1)
+coord_mat <- matrix(runif(20), nrow = 10, ncol = 2)
+spatial_mat <- spatial_adjacency(coord_mat, nnk = 5, sigma = 1)
+spatial_mat
 #> 10 x 10 sparse Matrix of class "dgCMatrix"
 #>                                              
-#>  [1,] 0.2 0.1 .   .   0.2 .   0.2 0.2 .   0.2
-#>  [2,] 0.1 0.2 .   .   0.2 0.2 .   .   0.2 .  
-#>  [3,] .   .   0.2 0.2 .   0.1 .   .   0.1 0.1
-#>  [4,] .   .   0.2 0.2 .   0.2 .   .   0.2 0.1
-#>  [5,] 0.2 0.2 .   .   0.2 .   0.1 0.1 .   .  
-#>  [6,] .   0.2 0.1 0.2 .   0.2 .   .   0.2 0.1
-#>  [7,] 0.2 .   .   .   0.1 .   0.2 0.2 0.1 0.2
-#>  [8,] 0.2 .   .   .   0.1 .   0.2 0.2 0.1 0.2
-#>  [9,] .   0.2 0.1 0.2 .   0.2 0.1 0.1 0.2 0.2
-#> [10,] 0.2 .   0.1 0.1 .   0.1 0.2 0.2 0.2 0.2
+#>  [1,] 0.2 0.2 0.1 .   0.2 .   .   .   0.1 0.1
+#>  [2,] 0.2 0.2 0.1 0.1 .   .   .   .   0.2 .  
+#>  [3,] 0.1 0.1 0.2 0.1 0.1 0.2 0.2 0.2 0.2 0.1
+#>  [4,] .   0.1 0.1 0.2 .   0.2 0.2 .   0.2 .  
+#>  [5,] 0.2 .   0.1 .   0.2 .   .   0.2 .   0.2
+#>  [6,] .   .   0.2 0.2 .   0.2 0.2 0.1 0.2 .  
+#>  [7,] .   .   0.2 0.2 .   0.2 0.2 0.2 .   .  
+#>  [8,] .   .   0.2 .   0.2 0.1 0.2 0.2 .   0.1
+#>  [9,] 0.1 0.2 0.2 0.2 .   0.2 .   .   0.2 .  
+#> [10,] 0.1 .   0.1 .   0.2 .   .   0.1 .   0.2
 ```
 
-For more advanced usage and additional examples, please refer to the
-package documentation and vignettes (coming soon).
+Related entry points include
+[`weighted_knn()`](https://bbuchsbaum.github.io/adjoin/reference/weighted_knn.md)
+/
+[`graph_weights()`](https://bbuchsbaum.github.io/adjoin/reference/graph_weights.md)
+for feature-space neighbor graphs,
+[`weighted_spatial_adjacency()`](https://bbuchsbaum.github.io/adjoin/reference/weighted_spatial_adjacency.md)
+for space–feature blends, and
+[`class_graph()`](https://bbuchsbaum.github.io/adjoin/reference/class_graph.md)
+for label-aware neighbor structure. See the vignettes linked above for
+worked examples.
 
 ## Albers theme
 

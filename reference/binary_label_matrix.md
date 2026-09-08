@@ -43,7 +43,7 @@ matrices, avoiding O(n^2) memory usage from expanding all pairs.
 
 ## See also
 
-[`diagonal_label_matrix`](https://bbuchsbaum.github.io/graphweights/reference/diagonal_label_matrix.md)
+[`diagonal_label_matrix`](https://bbuchsbaum.github.io/adjoin/reference/diagonal_label_matrix.md)
 for element-wise (positional) comparison
 
 ## Examples

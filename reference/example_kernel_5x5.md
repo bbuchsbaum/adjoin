@@ -30,7 +30,7 @@ example_kernel_5x5(rho0 = 1e-08, rhoA = 1, rhoB = 1, rhoAB = 0)
 ## Value
 
 A list with kernel matrices and metadata (see
-[`design_kernel`](https://bbuchsbaum.github.io/graphweights/reference/design_kernel.md))
+[`design_kernel`](https://bbuchsbaum.github.io/adjoin/reference/design_kernel.md))
 
 ## Examples
 

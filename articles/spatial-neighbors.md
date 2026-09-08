@@ -1,6 +1,7 @@
 # Spatial Neighbor Graphs
 
 ``` r
+
 library(adjoin)
 library(Matrix)
 ```
@@ -16,8 +17,8 @@ than a statistical one derived from feature vectors.
 `adjoin` provides a focused set of functions that build adjacency
 matrices directly from coordinate matrices. The output is always a
 sparse `Matrix` with the same interface as feature-based graphs:
-[`adjacency()`](https://bbuchsbaum.github.io/graphweights/reference/adjacency.md),
-[`laplacian()`](https://bbuchsbaum.github.io/graphweights/reference/laplacian.md),
+[`adjacency()`](https://bbuchsbaum.github.io/adjoin/reference/adjacency.md),
+[`laplacian()`](https://bbuchsbaum.github.io/adjoin/reference/laplacian.md),
 and normalization all work the same way.
 
 ------------------------------------------------------------------------
@@ -28,12 +29,13 @@ We will use a 6 × 6 grid throughout this vignette — small enough to
 visualize, representative of image and brain-imaging data.
 
 ``` r
+
 coords <- as.matrix(expand.grid(x = 1:6, y = 1:6))   # 36 points, 2 columns
 dim(coords)
 #> [1] 36  2
 ```
 
-[`spatial_adjacency()`](https://bbuchsbaum.github.io/graphweights/reference/spatial_adjacency.md)
+[`spatial_adjacency()`](https://bbuchsbaum.github.io/adjoin/reference/spatial_adjacency.md)
 connects every point to its nearest spatial neighbors. Two parameters
 shape the neighborhood:
 
@@ -42,6 +44,7 @@ shape the neighborhood:
 - **`nnk`** — the hard cap on neighbor count (keeps the matrix sparse)
 
 ``` r
+
 A <- spatial_adjacency(coords, sigma = 1.5, nnk = 8,
                        weight_mode = "heat",
                        include_diagonal = FALSE,
@@ -55,7 +58,7 @@ cat("symmetric:", isSymmetric(A), "\n")
 
 Each of the 36 grid points has up to 8 heat-kernel-weighted neighbors
 within radius `sigma × 3 = 4.5` grid units. Normalization symmetrizes
-the matrix ($D^{- 1/2}AD^{- 1/2}$) so that edge weights are comparable
+the matrix ($`D^{-1/2} A D^{-1/2}`$) so that edge weights are comparable
 across nodes with different numbers of neighbors.
 
 ![Spatial neighbor graph on a jittered 6 × 6 grid. Thicker, darker lines
@@ -85,6 +88,7 @@ weight.
 | `"binary"` | 1 for every neighbor | Structural analysis, graph spectra    |
 
 ``` r
+
 A_heat   <- spatial_adjacency(coords, sigma = 1.5, nnk = 8,
                               weight_mode = "heat",
                               include_diagonal = FALSE, normalized = FALSE,
@@ -114,6 +118,7 @@ Increasing `sigma` extends the neighborhood and softens the weight
 decay, adding more edges. The `nnk` cap limits runaway growth.
 
 ``` r
+
 A_tight <- spatial_adjacency(coords, sigma = 0.8, nnk = 27,
                              weight_mode = "heat",
                              include_diagonal = FALSE, normalized = TRUE)
@@ -138,12 +143,13 @@ wide sigma (2.5) connects most points richly.
 
 ## Spatial smoothing
 
-[`spatial_smoother()`](https://bbuchsbaum.github.io/graphweights/reference/spatial_smoother.md)
+[`spatial_smoother()`](https://bbuchsbaum.github.io/adjoin/reference/spatial_smoother.md)
 converts a spatial adjacency into a weighted averaging operator.
 Multiplying any signal vector by `S` replaces each point’s value with a
 distance-weighted average of its neighbors.
 
 ``` r
+
 S <- spatial_smoother(coords, sigma = 1.5, nnk = 8, stochastic = FALSE)
 
 set.seed(42)
@@ -167,12 +173,13 @@ produce a doubly stochastic smoother (rows *and* columns sum to 1).
 
 ## The spatial Laplacian
 
-[`spatial_laplacian()`](https://bbuchsbaum.github.io/graphweights/reference/spatial_laplacian.md)
+[`spatial_laplacian()`](https://bbuchsbaum.github.io/adjoin/reference/spatial_laplacian.md)
 returns L = D − A, where D is the degree matrix. Multiplying a signal by
 L measures its local curvature — how much each point deviates from its
 neighbors.
 
 ``` r
+
 L <- spatial_laplacian(coords, dthresh = 4.5, nnk = 8,
                        weight_mode = "binary", normalized = FALSE)
 
@@ -189,11 +196,12 @@ which is standard for spectral clustering and graph signal processing.
 ## Combining space and features
 
 When you have both coordinates *and* feature observations,
-[`weighted_spatial_adjacency()`](https://bbuchsbaum.github.io/graphweights/reference/weighted_spatial_adjacency.md)
+[`weighted_spatial_adjacency()`](https://bbuchsbaum.github.io/adjoin/reference/weighted_spatial_adjacency.md)
 blends the two similarity sources. The `alpha` parameter sweeps from
 pure spatial weighting to pure feature weighting.
 
 ``` r
+
 set.seed(42)
 features <- matrix(rnorm(36 * 5), nrow = 36, ncol = 5)  # random 5-d features
 
@@ -222,13 +230,14 @@ rewards both proximity *and* similarity.
 
 ## Bilateral smoothing
 
-[`bilateral_smoother()`](https://bbuchsbaum.github.io/graphweights/reference/bilateral_smoother.md)
+[`bilateral_smoother()`](https://bbuchsbaum.github.io/adjoin/reference/bilateral_smoother.md)
 is a spatial smoother that down-weights neighbors with very different
 feature values. This is the classic bilateral filter from image
 processing: it smooths within regions but preserves sharp edges between
 them.
 
 ``` r
+
 # Piecewise-constant signal with a hard boundary at x = 3.5
 signal_field <- ifelse(coords[, "x"] <= 3, -1, 1) + rnorm(36, sd = 0.2)
 feature_mat  <- matrix(signal_field, ncol = 1)
@@ -253,7 +262,7 @@ differences: smaller values enforce stricter edge preservation.
 
 ## Multi-block spatial constraints
 
-[`spatial_constraints()`](https://bbuchsbaum.github.io/graphweights/reference/spatial_constraints.md)
+[`spatial_constraints()`](https://bbuchsbaum.github.io/adjoin/reference/spatial_constraints.md)
 handles the case where the same spatial layout appears across multiple
 *blocks* — for example, the same brain or image grid measured across
 subjects or sessions. It builds a combined constraint matrix encoding:
@@ -267,6 +276,7 @@ The `shrinkage_factor` balances these two: 0 = all within-block, 1 = all
 between-block.
 
 ``` r
+
 coords_small <- as.matrix(expand.grid(x = 1:4, y = 1:4))  # 16-point grid
 
 # Pass a list with one entry per block (same grid repeated for two subjects)
@@ -294,46 +304,46 @@ directly into spectral methods that expect a properly scaled operator.
 
 For heterogeneous blocks where each block has different feature
 observations,
-[`feature_weighted_spatial_constraints()`](https://bbuchsbaum.github.io/graphweights/reference/feature_weighted_spatial_constraints.md)
+[`feature_weighted_spatial_constraints()`](https://bbuchsbaum.github.io/adjoin/reference/feature_weighted_spatial_constraints.md)
 extends this with per-block feature weighting.
 
 ------------------------------------------------------------------------
 
 ## Function reference
 
-| Function                                                                                                                                | What it builds                                           |
-|:----------------------------------------------------------------------------------------------------------------------------------------|:---------------------------------------------------------|
-| [`spatial_adjacency()`](https://bbuchsbaum.github.io/graphweights/reference/spatial_adjacency.md)                                       | Symmetric spatial similarity from one coordinate set     |
-| [`cross_spatial_adjacency()`](https://bbuchsbaum.github.io/graphweights/reference/cross_spatial_adjacency.md)                           | Rectangular similarity between two coordinate sets       |
-| [`spatial_laplacian()`](https://bbuchsbaum.github.io/graphweights/reference/spatial_laplacian.md)                                       | Graph Laplacian L = D − A from coordinates               |
-| [`spatial_smoother()`](https://bbuchsbaum.github.io/graphweights/reference/spatial_smoother.md)                                         | Row-stochastic spatial averaging operator                |
-| [`weighted_spatial_adjacency()`](https://bbuchsbaum.github.io/graphweights/reference/weighted_spatial_adjacency.md)                     | Spatial adjacency blended with feature similarity        |
-| [`bilateral_smoother()`](https://bbuchsbaum.github.io/graphweights/reference/bilateral_smoother.md)                                     | Edge-preserving spatial smoother                         |
-| [`spatial_constraints()`](https://bbuchsbaum.github.io/graphweights/reference/spatial_constraints.md)                                   | Multi-block constraint matrix for repeated layouts       |
-| [`feature_weighted_spatial_constraints()`](https://bbuchsbaum.github.io/graphweights/reference/feature_weighted_spatial_constraints.md) | Multi-block constraints with per-block feature weighting |
-| [`normalize_adjacency()`](https://bbuchsbaum.github.io/graphweights/reference/normalize_adjacency.md)                                   | Apply symmetric degree normalization                     |
-| [`make_doubly_stochastic()`](https://bbuchsbaum.github.io/graphweights/reference/make_doubly_stochastic.md)                             | Sinkhorn–Knopp doubly stochastic normalization           |
+| Function | What it builds |
+|:---|:---|
+| [`spatial_adjacency()`](https://bbuchsbaum.github.io/adjoin/reference/spatial_adjacency.md) | Symmetric spatial similarity from one coordinate set |
+| [`cross_spatial_adjacency()`](https://bbuchsbaum.github.io/adjoin/reference/cross_spatial_adjacency.md) | Rectangular similarity between two coordinate sets |
+| [`spatial_laplacian()`](https://bbuchsbaum.github.io/adjoin/reference/spatial_laplacian.md) | Graph Laplacian L = D − A from coordinates |
+| [`spatial_smoother()`](https://bbuchsbaum.github.io/adjoin/reference/spatial_smoother.md) | Row-stochastic spatial averaging operator |
+| [`weighted_spatial_adjacency()`](https://bbuchsbaum.github.io/adjoin/reference/weighted_spatial_adjacency.md) | Spatial adjacency blended with feature similarity |
+| [`bilateral_smoother()`](https://bbuchsbaum.github.io/adjoin/reference/bilateral_smoother.md) | Edge-preserving spatial smoother |
+| [`spatial_constraints()`](https://bbuchsbaum.github.io/adjoin/reference/spatial_constraints.md) | Multi-block constraint matrix for repeated layouts |
+| [`feature_weighted_spatial_constraints()`](https://bbuchsbaum.github.io/adjoin/reference/feature_weighted_spatial_constraints.md) | Multi-block constraints with per-block feature weighting |
+| [`normalize_adjacency()`](https://bbuchsbaum.github.io/adjoin/reference/normalize_adjacency.md) | Apply symmetric degree normalization |
+| [`make_doubly_stochastic()`](https://bbuchsbaum.github.io/adjoin/reference/make_doubly_stochastic.md) | Sinkhorn–Knopp doubly stochastic normalization |
 
 ------------------------------------------------------------------------
 
 ## Where to go next
 
 - **Feature-based graphs** —
-  [`graph_weights()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights.md)
+  [`graph_weights()`](https://bbuchsbaum.github.io/adjoin/reference/graph_weights.md)
   and
-  [`nnsearcher()`](https://bbuchsbaum.github.io/graphweights/reference/nnsearcher.md)
+  [`nnsearcher()`](https://bbuchsbaum.github.io/adjoin/reference/nnsearcher.md)
   build graphs from feature vectors rather than coordinates; see
-  [`vignette("adjoin")`](https://bbuchsbaum.github.io/graphweights/articles/adjoin.md).
+  [`vignette("adjoin")`](https://bbuchsbaum.github.io/adjoin/articles/adjoin.md).
 - **Diffusion** —
-  [`compute_diffusion_kernel()`](https://bbuchsbaum.github.io/graphweights/reference/compute_diffusion_kernel.md)
+  [`compute_diffusion_kernel()`](https://bbuchsbaum.github.io/adjoin/reference/compute_diffusion_kernel.md)
   propagates information through any adjacency matrix, spatial or
   feature-based.
 - **Label constraints** —
-  [`expand_label_similarity()`](https://bbuchsbaum.github.io/graphweights/reference/expand_label_similarity.md)
+  [`expand_label_similarity()`](https://bbuchsbaum.github.io/adjoin/reference/expand_label_similarity.md)
   combines spatial proximity with class labels for semi-supervised
   methods.
 - **API reference** —
-  [`?spatial_adjacency`](https://bbuchsbaum.github.io/graphweights/reference/spatial_adjacency.md),
-  [`?spatial_constraints`](https://bbuchsbaum.github.io/graphweights/reference/spatial_constraints.md),
-  [`?bilateral_smoother`](https://bbuchsbaum.github.io/graphweights/reference/bilateral_smoother.md)
+  [`?spatial_adjacency`](https://bbuchsbaum.github.io/adjoin/reference/spatial_adjacency.md),
+  [`?spatial_constraints`](https://bbuchsbaum.github.io/adjoin/reference/spatial_constraints.md),
+  [`?bilateral_smoother`](https://bbuchsbaum.github.io/adjoin/reference/bilateral_smoother.md)
   for full parameter documentation.

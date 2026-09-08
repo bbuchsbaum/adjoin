@@ -1,6 +1,7 @@
 # Getting Started with adjoin
 
 ``` r
+
 library(adjoin)
 library(Matrix)
 ```
@@ -28,11 +29,12 @@ computing the graph Laplacian, and inspecting edges.
 ## Your first graph
 
 The easiest entry point is
-[`graph_weights()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights.md).
+[`graph_weights()`](https://bbuchsbaum.github.io/adjoin/reference/graph_weights.md).
 Give it a data matrix, a neighborhood size `k`, and a weight mode, and
 it returns a ready-to-use `neighbor_graph`.
 
 ``` r
+
 set.seed(42)
 X  <- as.matrix(iris[, 1:4])          # 150 flowers × 4 measurements
 ng <- graph_weights(X, k = 5,
@@ -43,7 +45,7 @@ cat("nodes:", nvertices(ng), " | edges:", nnzero(A) / 2, "\n")
 #> nodes: 150  | edges: 508.5
 ```
 
-[`graph_weights()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights.md)
+[`graph_weights()`](https://bbuchsbaum.github.io/adjoin/reference/graph_weights.md)
 searched for the 5 nearest Euclidean neighbors of each flower, converted
 distances to similarities with a heat kernel (exp(−d²/2σ²)), then
 symmetrized the result. The adjacency matrix is stored as a sparse
@@ -68,21 +70,24 @@ Every feature-similarity graph follows the same three-step pipeline.
 **Step 1 — Prepare data.** Rows are observations; columns are features.
 
 ``` r
+
 X <- as.matrix(iris[, 1:4])
 dim(X)
 #> [1] 150   4
 ```
 
 **Step 2 — Build the graph.** Pass the matrix to
-[`graph_weights()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights.md).
+[`graph_weights()`](https://bbuchsbaum.github.io/adjoin/reference/graph_weights.md).
 
 ``` r
+
 ng <- graph_weights(X, k = 5, weight_mode = "heat", sigma = 0.5)
 ```
 
 **Step 3 — Use the graph.** Extract what downstream methods need.
 
 ``` r
+
 A      <- adjacency(ng)                  # sparse similarity matrix
 L      <- laplacian(ng)                  # L = D − A
 L_norm <- laplacian(ng, normalized = TRUE)  # I − D^{-1/2} A D^{-1/2}
@@ -97,7 +102,7 @@ symmetric-normalized forms are available directly.
 ## Which graph constructor should I use?
 
 Most users should start with
-[`graph_weights()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights.md).
+[`graph_weights()`](https://bbuchsbaum.github.io/adjoin/reference/graph_weights.md).
 It takes a data matrix, finds k-nearest neighbors with exact Euclidean
 search, converts distances to similarities, applies the requested
 symmetry rule, and returns a `neighbor_graph` with the construction
@@ -106,21 +111,21 @@ parameters stored in `$params`.
 Use the lower-level constructors when you need a different return type
 or more control over the search step:
 
-| Function                                                                                            | Return value                | Use it when                                                                                                                                                                                                                                                                                                                 |
-|:----------------------------------------------------------------------------------------------------|:----------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [`graph_weights()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights.md)           | `neighbor_graph`            | You want the standard feature-similarity graph API: [`adjacency()`](https://bbuchsbaum.github.io/graphweights/reference/adjacency.md), [`laplacian()`](https://bbuchsbaum.github.io/graphweights/reference/laplacian.md), [`edges()`](https://bbuchsbaum.github.io/graphweights/reference/edges.md), and stored parameters. |
-| [`weighted_knn()`](https://bbuchsbaum.github.io/graphweights/reference/weighted_knn.md)             | `igraph` or sparse `Matrix` | You want a raw weighted kNN graph/matrix and will manage metadata yourself.                                                                                                                                                                                                                                                 |
-| [`graph_weights_fast()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights_fast.md) | sparse `Matrix`             | You want the faster matrix-only path, self-tuned weights, or explicit backend control. Exact `Rnanoflann` search is the default; approximate HNSW is used only with `backend = "hnsw"`.                                                                                                                                     |
-| [`neighbor_graph()`](https://bbuchsbaum.github.io/graphweights/reference/neighbor_graph.md)         | `neighbor_graph` wrapper    | You already have an `igraph`, adjacency matrix, or `nnsearcher` result and want to wrap it in the package’s graph object.                                                                                                                                                                                                   |
+| Function | Return value | Use it when |
+|:---|:---|:---|
+| [`graph_weights()`](https://bbuchsbaum.github.io/adjoin/reference/graph_weights.md) | `neighbor_graph` | You want the standard feature-similarity graph API: [`adjacency()`](https://bbuchsbaum.github.io/adjoin/reference/adjacency.md), [`laplacian()`](https://bbuchsbaum.github.io/adjoin/reference/laplacian.md), [`edges()`](https://bbuchsbaum.github.io/adjoin/reference/edges.md), and stored parameters. |
+| [`weighted_knn()`](https://bbuchsbaum.github.io/adjoin/reference/weighted_knn.md) | `igraph` or sparse `Matrix` | You want a raw weighted kNN graph/matrix and will manage metadata yourself. |
+| [`graph_weights_fast()`](https://bbuchsbaum.github.io/adjoin/reference/graph_weights_fast.md) | sparse `Matrix` | You want the faster matrix-only path, self-tuned weights, or explicit backend control. Exact `Rnanoflann` search is the default; approximate HNSW is used only with `backend = "hnsw"`. |
+| [`neighbor_graph()`](https://bbuchsbaum.github.io/adjoin/reference/neighbor_graph.md) | `neighbor_graph` wrapper | You already have an `igraph`, adjacency matrix, or `nnsearcher` result and want to wrap it in the package’s graph object. |
 
 In short,
-[`graph_weights()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights.md)
+[`graph_weights()`](https://bbuchsbaum.github.io/adjoin/reference/graph_weights.md)
 is the high-level constructor,
-[`weighted_knn()`](https://bbuchsbaum.github.io/graphweights/reference/weighted_knn.md)
+[`weighted_knn()`](https://bbuchsbaum.github.io/adjoin/reference/weighted_knn.md)
 and
-[`graph_weights_fast()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights_fast.md)
+[`graph_weights_fast()`](https://bbuchsbaum.github.io/adjoin/reference/graph_weights_fast.md)
 are matrix/graph builders, and
-[`neighbor_graph()`](https://bbuchsbaum.github.io/graphweights/reference/neighbor_graph.md)
+[`neighbor_graph()`](https://bbuchsbaum.github.io/adjoin/reference/neighbor_graph.md)
 is the object wrapper used after a graph already exists.
 
 ------------------------------------------------------------------------
@@ -130,6 +135,7 @@ is the object wrapper used after a graph already exists.
 A `neighbor_graph` is a named list:
 
 ``` r
+
 names(ng)
 #> [1] "G"      "params"
 str(ng$params, max.level = 1)
@@ -148,6 +154,7 @@ str(ng$params, max.level = 1)
 Three accessors cover the most common needs:
 
 ``` r
+
 nvertices(ng)      # number of nodes
 #> [1] 150
 head(edges(ng))    # edge list as a character matrix
@@ -175,6 +182,7 @@ scores.
 | `"normalized"` | correlation-like          | Zero-mean, unit-variance features |
 
 ``` r
+
 ng_norm <- graph_weights(X, k = 5, weight_mode = "normalized")
 ng_cos  <- graph_weights(X, k = 5, weight_mode = "cosine")
 ng_heat <- graph_weights(X, k = 5, weight_mode = "heat", sigma = 0.5)
@@ -201,6 +209,7 @@ is included (`type = "normal"`, union). Two alternatives trade off
 sparsity and confidence:
 
 ``` r
+
 # mutual: both must nominate each other (sparser, higher confidence)
 ng_mutual <- graph_weights(X, k = 5, weight_mode = "heat",
                            type = "mutual")
@@ -227,12 +236,14 @@ For repeated queries, build an `nnsearcher` index once and query it as
 many times as needed.
 
 ``` r
+
 searcher <- nnsearcher(X, labels = iris$Species)
 ```
 
 Find neighbors for every point:
 
 ``` r
+
 nn_result <- find_nn(searcher, k = 5)
 names(nn_result)   # indices, distances, labels
 #> [1] "labels"    "indices"   "distances"
@@ -241,18 +252,21 @@ names(nn_result)   # indices, distances, labels
 Search within a subset (e.g., setosa flowers only):
 
 ``` r
+
 nn_setosa <- find_nn_among(searcher, k = 3, idx = 1:50)
 ```
 
 Search between two groups (setosa vs. versicolor):
 
 ``` r
+
 nn_cross <- find_nn_between(searcher, k = 3, idx1 = 1:50, idx2 = 51:100)
 ```
 
 Build a `neighbor_graph` from the index:
 
 ``` r
+
 ng2 <- neighbor_graph(searcher, k = 5, transform = "heat", sigma = 0.5)
 ```
 
@@ -265,11 +279,12 @@ across multiple graph configurations.
 ## Class-based graphs
 
 When class labels are available,
-[`class_graph()`](https://bbuchsbaum.github.io/graphweights/reference/class_graph.md)
+[`class_graph()`](https://bbuchsbaum.github.io/adjoin/reference/class_graph.md)
 connects every pair of same-class points — creating a fully connected
 block structure.
 
 ``` r
+
 cg <- class_graph(iris$Species)
 nclasses(cg)
 #> [1] 3
@@ -283,12 +298,13 @@ class_graph adjacency for iris. Each block is a fully connected class;
 no edges cross species boundaries.
 
 `class_graph` objects are `neighbor_graph` subclasses — every accessor
-([`adjacency()`](https://bbuchsbaum.github.io/graphweights/reference/adjacency.md),
-[`laplacian()`](https://bbuchsbaum.github.io/graphweights/reference/laplacian.md),
-[`edges()`](https://bbuchsbaum.github.io/graphweights/reference/edges.md))
+([`adjacency()`](https://bbuchsbaum.github.io/adjoin/reference/adjacency.md),
+[`laplacian()`](https://bbuchsbaum.github.io/adjoin/reference/laplacian.md),
+[`edges()`](https://bbuchsbaum.github.io/adjoin/reference/edges.md))
 works on them too. They also support class-specific queries:
 
 ``` r
+
 # within-class neighbors for every point
 wc <- within_class_neighbors(cg, X, k = 3)
 
@@ -304,9 +320,10 @@ methods like LDA and neighborhood component analysis.
 ## Cross-graph similarity
 
 To connect two *different* datasets, use
-[`cross_adjacency()`](https://bbuchsbaum.github.io/graphweights/reference/cross_adjacency.md):
+[`cross_adjacency()`](https://bbuchsbaum.github.io/adjoin/reference/cross_adjacency.md):
 
 ``` r
+
 X_ref   <- as.matrix(iris[1:100,  1:4])   # 100 reference points
 X_query <- as.matrix(iris[101:150, 1:4])  # 50 query points
 
@@ -326,12 +343,13 @@ cross-modal retrieval, domain adaptation, and inter-subject alignment.
 
 Raw adjacency matrices are degree-imbalanced: high-degree nodes
 dominate.
-[`normalize_adjacency()`](https://bbuchsbaum.github.io/graphweights/reference/normalize_adjacency.md)
+[`normalize_adjacency()`](https://bbuchsbaum.github.io/adjoin/reference/normalize_adjacency.md)
 applies the symmetric degree normalization `D^{-1/2} A D^{-1/2}` used by
 the package’s default spectral diffusion routines. It preserves
 symmetry, so the row sums are not expected to equal one:
 
 ``` r
+
 A_raw  <- adjacency(ng)
 A_norm <- normalize_adjacency(A_raw)
 
@@ -345,6 +363,7 @@ For a Markov transition matrix used in random-walk analysis,
 row-normalize by degree instead:
 
 ``` r
+
 deg <- Matrix::rowSums(A_raw)
 P_walk <- Matrix::Diagonal(x = ifelse(deg > 0, 1 / deg, 0)) %*% A_raw
 
@@ -362,33 +381,33 @@ transition internally.
 
 ## Quick-reference: objects and constructors
 
-| Object                    | Created by                                                                                                                                                                                                                                                              | What it holds                                      |
-|:--------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:---------------------------------------------------|
-| `neighbor_graph`          | [`graph_weights()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights.md), [`neighbor_graph()`](https://bbuchsbaum.github.io/graphweights/reference/neighbor_graph.md)                                                                                  | `igraph` + construction params                     |
-| sparse adjacency `Matrix` | `weighted_knn(..., as = "sparse")`, [`graph_weights_fast()`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights_fast.md), [`adjacency()`](https://bbuchsbaum.github.io/graphweights/reference/adjacency.md)                                              | Numeric edge weights for downstream matrix methods |
-| `igraph`                  | `weighted_knn(..., as = "igraph")`                                                                                                                                                                                                                                      | Raw graph topology and edge weights                |
-| `class_graph`             | [`class_graph()`](https://bbuchsbaum.github.io/graphweights/reference/class_graph.md)                                                                                                                                                                                   | Extends `neighbor_graph` with class structure      |
-| `nnsearcher`              | [`nnsearcher()`](https://bbuchsbaum.github.io/graphweights/reference/nnsearcher.md)                                                                                                                                                                                     | Reusable nearest-neighbor search index             |
-| `nn_search`               | [`find_nn()`](https://bbuchsbaum.github.io/graphweights/reference/find_nn.md), [`find_nn_among()`](https://bbuchsbaum.github.io/graphweights/reference/find_nn_among.md), [`find_nn_between()`](https://bbuchsbaum.github.io/graphweights/reference/find_nn_between.md) | Raw search result: indices, distances, labels      |
+| Object | Created by | What it holds |
+|:---|:---|:---|
+| `neighbor_graph` | [`graph_weights()`](https://bbuchsbaum.github.io/adjoin/reference/graph_weights.md), [`neighbor_graph()`](https://bbuchsbaum.github.io/adjoin/reference/neighbor_graph.md) | `igraph` + construction params |
+| sparse adjacency `Matrix` | `weighted_knn(..., as = "sparse")`, [`graph_weights_fast()`](https://bbuchsbaum.github.io/adjoin/reference/graph_weights_fast.md), [`adjacency()`](https://bbuchsbaum.github.io/adjoin/reference/adjacency.md) | Numeric edge weights for downstream matrix methods |
+| `igraph` | `weighted_knn(..., as = "igraph")` | Raw graph topology and edge weights |
+| `class_graph` | [`class_graph()`](https://bbuchsbaum.github.io/adjoin/reference/class_graph.md) | Extends `neighbor_graph` with class structure |
+| `nnsearcher` | [`nnsearcher()`](https://bbuchsbaum.github.io/adjoin/reference/nnsearcher.md) | Reusable nearest-neighbor search index |
+| `nn_search` | [`find_nn()`](https://bbuchsbaum.github.io/adjoin/reference/find_nn.md), [`find_nn_among()`](https://bbuchsbaum.github.io/adjoin/reference/find_nn_among.md), [`find_nn_between()`](https://bbuchsbaum.github.io/adjoin/reference/find_nn_between.md) | Raw search result: indices, distances, labels |
 
 ------------------------------------------------------------------------
 
 ## Where to go next
 
 - **Spatial graphs** —
-  [`spatial_adjacency()`](https://bbuchsbaum.github.io/graphweights/reference/spatial_adjacency.md)
+  [`spatial_adjacency()`](https://bbuchsbaum.github.io/adjoin/reference/spatial_adjacency.md)
   builds graphs from 2-D/3-D grid coordinates rather than feature
   vectors; see
-  [`?spatial_adjacency`](https://bbuchsbaum.github.io/graphweights/reference/spatial_adjacency.md).
+  [`?spatial_adjacency`](https://bbuchsbaum.github.io/adjoin/reference/spatial_adjacency.md).
 - **Diffusion** —
-  [`compute_diffusion_kernel()`](https://bbuchsbaum.github.io/graphweights/reference/compute_diffusion_kernel.md)
+  [`compute_diffusion_kernel()`](https://bbuchsbaum.github.io/adjoin/reference/compute_diffusion_kernel.md)
   and
-  [`compute_diffusion_map()`](https://bbuchsbaum.github.io/graphweights/reference/compute_diffusion_map.md)
+  [`compute_diffusion_map()`](https://bbuchsbaum.github.io/adjoin/reference/compute_diffusion_map.md)
   propagate information through a graph and yield spectral embeddings.
 - **Label similarity** — `label_matrix()` and
-  [`expand_label_similarity()`](https://bbuchsbaum.github.io/graphweights/reference/expand_label_similarity.md)
+  [`expand_label_similarity()`](https://bbuchsbaum.github.io/adjoin/reference/expand_label_similarity.md)
   create soft label-overlap matrices for semi-supervised settings.
 - **Bandwidth selection** —
-  [`estimate_sigma()`](https://bbuchsbaum.github.io/graphweights/reference/estimate_sigma.md)
+  [`estimate_sigma()`](https://bbuchsbaum.github.io/adjoin/reference/estimate_sigma.md)
   automatically picks a heat kernel bandwidth from your data
   distribution.

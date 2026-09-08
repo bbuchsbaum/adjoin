@@ -74,11 +74,11 @@ varying densities.
 
 Provides additional neighbor search backends (HNSW, nanoflann) and
 self-tuning sigma estimation not available in
-[`graph_weights`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights.md).
+[`graph_weights`](https://bbuchsbaum.github.io/adjoin/reference/graph_weights.md).
 
 ## See also
 
-[`graph_weights`](https://bbuchsbaum.github.io/graphweights/reference/graph_weights.md)
+[`graph_weights`](https://bbuchsbaum.github.io/adjoin/reference/graph_weights.md)
 for the standard interface
 
 ## Examples

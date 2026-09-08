@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Constructing Adjacency Matrices Based on Spatial and Feature Similarity • adjoin</title>
 <script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><link href="extra.css" rel="stylesheet">
 <script src="extra.js"></script><meta property="og:title" content="Constructing Adjacency Matrices Based on Spatial and Feature Similarity">
@@ -55,49 +55,47 @@
 </nav><div class="container template-home">
 <div class="row">
   <main id="main" class="col-md-9"><div class="section level1">
-<div class="page-header"><h1 id="neighborweights">neighborweights<a class="anchor" aria-label="anchor" href="#neighborweights"></a>
+<div class="page-header"><h1 id="adjoin">adjoin<a class="anchor" aria-label="anchor" href="#adjoin"></a>
 </h1></div>
-<div class="section level2">
-<h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
-</h2>
-<p>The <code>neighborweights</code> package provides a collection of functions for constructing adjacency matrices based on spatial and feature-based similarity between data points. It enables users to analyze and visualize complex data relationships by creating spatial and feature-weighted adjacency matrices using various methods.</p>
-</div>
+<!-- badges: start -->
+
+<p><strong>adjoin</strong> constructs sparse adjacency matrices from spatial coordinates, feature measurements, class labels, and temporal indices.</p>
+<p><a href="https://bbuchsbaum.github.io/adjoin/">Documentation</a> · <a href="https://bbuchsbaum.github.io/adjoin/articles/adjoin.html">Getting started</a> · <a href="https://bbuchsbaum.github.io/adjoin/articles/spatial-neighbors.html">Spatial neighbors</a> · <a href="https://bbuchsbaum.github.io/adjoin/reference/">API reference</a> · <a href="NEWS.html">Changelog</a></p>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<p>You can install the <code>neighborweights</code> package from GitHub with:</p>
+<p>Install the released version from CRAN:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># install.packages("devtools")</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"bbuchsbaum/neighborweights"</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"adjoin"</span><span class="op">)</span></span></code></pre></div>
+<p>Or the development version from GitHub:</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># install.packages("remotes")</span></span>
+<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"bbuchsbaum/adjoin"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="usage">Usage<a class="anchor" aria-label="anchor" href="#usage"></a>
+<h2 id="quick-start">Quick start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
 </h2>
-<p>Here’s a basic example demonstrating how to create a spatial adjacency matrix using the spatial_adjacency function:</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">neighborweights</span><span class="op">)</span></span>
+<p>Build a spatial adjacency matrix from coordinates with <code><a href="reference/spatial_adjacency.html">spatial_adjacency()</a></code>:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/bbuchsbaum/adjoin" class="external-link">adjoin</a></span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Generate random coordinates</span></span>
-<span><span class="va">coord_mat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fl">20</span><span class="op">)</span>, nrow<span class="op">=</span><span class="fl">10</span>, ncol<span class="op">=</span><span class="fl">2</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Calculate the spatial adjacency matrix</span></span>
-<span><span class="va">spatial_mat</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/spatial_adjacency.html">spatial_adjacency</a></span><span class="op">(</span><span class="va">coord_mat</span>, nnk<span class="op">=</span><span class="fl">5</span>, sigma<span class="op">=</span><span class="fl">1</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Inspect the resulting matrix</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">spatial_mat</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">coord_mat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fl">20</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">10</span>, ncol <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="va">spatial_mat</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/spatial_adjacency.html">spatial_adjacency</a></span><span class="op">(</span><span class="va">coord_mat</span>, nnk <span class="op">=</span> <span class="fl">5</span>, sigma <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">spatial_mat</span></span>
 <span><span class="co">#&gt; 10 x 10 sparse Matrix of class "dgCMatrix"</span></span>
 <span><span class="co">#&gt;                                              </span></span>
-<span><span class="co">#&gt;  [1,] 0.2 0.1 .   .   0.2 .   0.2 0.2 .   0.2</span></span>
-<span><span class="co">#&gt;  [2,] 0.1 0.2 .   .   0.2 0.2 .   .   0.2 .  </span></span>
-<span><span class="co">#&gt;  [3,] .   .   0.2 0.2 .   0.1 .   .   0.1 0.1</span></span>
-<span><span class="co">#&gt;  [4,] .   .   0.2 0.2 .   0.2 .   .   0.2 0.1</span></span>
-<span><span class="co">#&gt;  [5,] 0.2 0.2 .   .   0.2 .   0.1 0.1 .   .  </span></span>
-<span><span class="co">#&gt;  [6,] .   0.2 0.1 0.2 .   0.2 .   .   0.2 0.1</span></span>
-<span><span class="co">#&gt;  [7,] 0.2 .   .   .   0.1 .   0.2 0.2 0.1 0.2</span></span>
-<span><span class="co">#&gt;  [8,] 0.2 .   .   .   0.1 .   0.2 0.2 0.1 0.2</span></span>
-<span><span class="co">#&gt;  [9,] .   0.2 0.1 0.2 .   0.2 0.1 0.1 0.2 0.2</span></span>
-<span><span class="co">#&gt; [10,] 0.2 .   0.1 0.1 .   0.1 0.2 0.2 0.2 0.2</span></span></code></pre></div>
-<p>For more advanced usage and additional examples, please refer to the package documentation and vignettes (coming soon).</p>
+<span><span class="co">#&gt;  [1,] 0.2 0.2 0.1 .   0.2 .   .   .   0.1 0.1</span></span>
+<span><span class="co">#&gt;  [2,] 0.2 0.2 0.1 0.1 .   .   .   .   0.2 .  </span></span>
+<span><span class="co">#&gt;  [3,] 0.1 0.1 0.2 0.1 0.1 0.2 0.2 0.2 0.2 0.1</span></span>
+<span><span class="co">#&gt;  [4,] .   0.1 0.1 0.2 .   0.2 0.2 .   0.2 .  </span></span>
+<span><span class="co">#&gt;  [5,] 0.2 .   0.1 .   0.2 .   .   0.2 .   0.2</span></span>
+<span><span class="co">#&gt;  [6,] .   .   0.2 0.2 .   0.2 0.2 0.1 0.2 .  </span></span>
+<span><span class="co">#&gt;  [7,] .   .   0.2 0.2 .   0.2 0.2 0.2 .   .  </span></span>
+<span><span class="co">#&gt;  [8,] .   .   0.2 .   0.2 0.1 0.2 0.2 .   0.1</span></span>
+<span><span class="co">#&gt;  [9,] 0.1 0.2 0.2 0.2 .   0.2 .   .   0.2 .  </span></span>
+<span><span class="co">#&gt; [10,] 0.1 .   0.1 .   0.2 .   .   0.1 .   0.2</span></span></code></pre></div>
+<p>Related entry points include <code><a href="reference/weighted_knn.html">weighted_knn()</a></code> / <code><a href="reference/graph_weights.html">graph_weights()</a></code> for feature-space neighbor graphs, <code><a href="reference/weighted_spatial_adjacency.html">weighted_spatial_adjacency()</a></code> for space–feature blends, and <code><a href="reference/class_graph.html">class_graph()</a></code> for label-aware neighbor structure. See the vignettes linked above for worked examples.</p>
 <!-- albersdown:theme-note:start -->
 </div>
 <div class="section level2">
@@ -109,6 +107,7 @@
   </main><aside class="col-md-3"><div class="links">
 <h2 data-toc-skip>Links</h2>
 <ul class="list-unstyled">
+<li><a href="https://cloud.r-project.org/package=adjoin" class="external-link">View on CRAN</a></li>
 <li><a href="https://github.com/bbuchsbaum/adjoin/" class="external-link">Browse source code</a></li>
 <li><a href="https://github.com/bbuchsbaum/adjoin/issues" class="external-link">Report a bug</a></li>
 </ul>
@@ -138,7 +137,15 @@
 </ul>
 </div>
 
-
+<div class="dev-status">
+<h2 data-toc-skip>Dev status</h2>
+<ul class="list-unstyled">
+<li><a href="https://cran.r-project.org/package=adjoin" class="external-link"><img src="https://www.r-pkg.org/badges/version/adjoin" alt="CRAN status"></a></li>
+<li><a href="https://github.com/bbuchsbaum/adjoin/actions/workflows/check-standard.yaml" class="external-link"><img src="https://github.com/bbuchsbaum/adjoin/actions/workflows/check-standard.yaml/badge.svg" alt="R-CMD-check"></a></li>
+<li><a href="https://bbuchsbaum.github.io/adjoin/"><img src="https://github.com/bbuchsbaum/adjoin/actions/workflows/pkgdown.yaml/badge.svg" alt="pkgdown"></a></li>
+<li><a href="https://app.codecov.io/gh/bbuchsbaum/adjoin" class="external-link"><img src="https://codecov.io/gh/bbuchsbaum/adjoin/branch/main/graph/badge.svg" alt="Codecov test coverage"></a></li>
+</ul>
+</div>
 
   </aside>
 </div>
@@ -149,7 +156,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

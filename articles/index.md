@@ -3,6 +3,6 @@
 ### All vignettes
 
 - [Getting Started with
-  adjoin](https://bbuchsbaum.github.io/graphweights/articles/adjoin.md):
+  adjoin](https://bbuchsbaum.github.io/adjoin/articles/adjoin.md):
 - [Spatial Neighbor
-  Graphs](https://bbuchsbaum.github.io/graphweights/articles/spatial-neighbors.md):
+  Graphs](https://bbuchsbaum.github.io/adjoin/articles/spatial-neighbors.md):

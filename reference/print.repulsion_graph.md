@@ -34,9 +34,9 @@ print(rg)
 #> Repulsion Graph Object
 #> ----------------------
 #> $G
-#> IGRAPH c17faa1 U-W- 2 1 -- 
+#> IGRAPH 0d9f7ab U-W- 2 1 -- 
 #> + attr: weight (e/n)
-#> + edge from c17faa1:
+#> + edge from 0d9f7ab:
 #> [1] 1--2
 #> 
 #> $params

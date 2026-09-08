@@ -59,14 +59,14 @@ all-pairs comparison. Positions where either label is NA are excluded
 from the result.
 
 For all-pairs comparison (block structure), use
-[`binary_label_matrix`](https://bbuchsbaum.github.io/graphweights/reference/binary_label_matrix.md).
+[`binary_label_matrix`](https://bbuchsbaum.github.io/adjoin/reference/binary_label_matrix.md).
 For diagonal comparison without NA handling, use
-[`diagonal_label_matrix`](https://bbuchsbaum.github.io/graphweights/reference/diagonal_label_matrix.md).
+[`diagonal_label_matrix`](https://bbuchsbaum.github.io/adjoin/reference/diagonal_label_matrix.md).
 
 ## See also
 
-[`binary_label_matrix`](https://bbuchsbaum.github.io/graphweights/reference/binary_label_matrix.md),
-[`diagonal_label_matrix`](https://bbuchsbaum.github.io/graphweights/reference/diagonal_label_matrix.md)
+[`binary_label_matrix`](https://bbuchsbaum.github.io/adjoin/reference/binary_label_matrix.md),
+[`diagonal_label_matrix`](https://bbuchsbaum.github.io/adjoin/reference/diagonal_label_matrix.md)
 
 ## Examples
 
