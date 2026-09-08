@@ -13,41 +13,59 @@ knitr::opts_chunk$set(
 )
 ```
 
-# neighborweights
+# adjoin
 
-## Overview
+<!-- badges: start -->
+[![CRAN status](https://www.r-pkg.org/badges/version/adjoin)](https://cran.r-project.org/package=adjoin)
+[![R-CMD-check](https://github.com/bbuchsbaum/adjoin/actions/workflows/check-standard.yaml/badge.svg)](https://github.com/bbuchsbaum/adjoin/actions/workflows/check-standard.yaml)
+[![pkgdown](https://github.com/bbuchsbaum/adjoin/actions/workflows/pkgdown.yaml/badge.svg)](https://bbuchsbaum.github.io/adjoin/)
+[![Codecov test coverage](https://codecov.io/gh/bbuchsbaum/adjoin/branch/main/graph/badge.svg)](https://app.codecov.io/gh/bbuchsbaum/adjoin)
+<!-- badges: end -->
 
-The `neighborweights` package provides a collection of functions for constructing adjacency matrices based on spatial and feature-based similarity between data points. It enables users to analyze and visualize complex data relationships by creating spatial and feature-weighted adjacency matrices using various methods.
+**adjoin** constructs sparse adjacency matrices from spatial coordinates,
+feature measurements, class labels, and temporal indices.
+
+[Documentation](https://bbuchsbaum.github.io/adjoin/) ·
+[Getting started](https://bbuchsbaum.github.io/adjoin/articles/adjoin.html) ·
+[Spatial neighbors](https://bbuchsbaum.github.io/adjoin/articles/spatial-neighbors.html) ·
+[API reference](https://bbuchsbaum.github.io/adjoin/reference/) ·
+[Changelog](NEWS.md)
 
 ## Installation
 
-You can install the `neighborweights` package from GitHub with:
+Install the released version from CRAN:
 
 ```r
-# install.packages("devtools")
-devtools::install_github("bbuchsbaum/neighborweights")
+install.packages("adjoin")
 ```
 
-##Usage
+Or the development version from GitHub:
 
-Here's a basic example demonstrating how to create a spatial adjacency matrix using the spatial_adjacency function:
+```r
+# install.packages("remotes")
+remotes::install_github("bbuchsbaum/adjoin")
+```
+
+## Quick start
+
+Build a spatial adjacency matrix from coordinates with
+`spatial_adjacency()`:
 
 ```{r}
-library(neighborweights)
+library(adjoin)
 
-# Generate random coordinates
-coord_mat <- matrix(runif(100), nrow=10, ncol=2)
-
-# Calculate the spatial adjacency matrix
-spatial_mat <- spatial_adjacency(coord_mat, nnk=5, sigma=1)
-
-# Inspect the resulting matrix
-print(spatial_mat)
+set.seed(1)
+coord_mat <- matrix(runif(20), nrow = 10, ncol = 2)
+spatial_mat <- spatial_adjacency(coord_mat, nnk = 5, sigma = 1)
+spatial_mat
 ```
 
+Related entry points include `weighted_knn()` / `graph_weights()` for
+feature-space neighbor graphs, `weighted_spatial_adjacency()` for
+space–feature blends, and `class_graph()` for label-aware neighbor
+structure. See the vignettes linked above for worked examples.
 
-For more advanced usage and additional examples, please refer to the package documentation and vignettes (coming soon).
-
-
-
-
+<!-- albersdown:theme-note:start -->
+## Albers theme
+This package uses the albersdown theme. Existing vignette theme hooks are replaced so `albers.css` and local `albers.js` render consistently on CRAN and GitHub Pages. The defaults are configured via `params$family` and `params$preset` (family = 'teal', preset = 'homage'). The pkgdown site uses `template: { package: albersdown }` together with generated `pkgdown/extra.css` and `pkgdown/extra.js` so the theme is linked and activated on site pages.
+<!-- albersdown:theme-note:end -->
